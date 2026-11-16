@@ -21,3 +21,4 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 - 화면의 SwiftUI `Map`은 `ImageRenderer`로 그림이 되지 않는다. 이미지로 내보낼 때는 `MKMapSnapshotter`로 지도 그림을 받아 핀·선을 직접 그린다(`TimelineShare.mapImage`). 만들어진 공유 이미지는 `xcrun simctl get_app_container <ID> com.heejung.phototidy data` 아래 `tmp/타임라인.jpg`.
 - 2026-11-16 전체 코드 리뷰 결과 미수정(사용자 결정 대기): 분석 기준 시각 때문에 나중에 들어온 옛 사진·건너뛴 사진이 다시 분석되지 않음(`AppModel.startAnalysis`), 공유 준비 중 날짜를 바꾸면 내용이 섞임, 직접 붙인 장소 이름 키(좌표 반올림)가 불안정, `CLGeocoder` 동시 요청 실패.
 - 배경 지식은 `llm-wiki/`(시작은 `llm-wiki/index.md`, 운영 규칙은 `llm-wiki/README.md`)에 있다. 기능·결정이 바뀌면 관련 페이지를 고치고 `llm-wiki/log.md`에 한 줄 추가할 것.
+- 앱 기본 언어는 한국어(`project.yml`의 `developmentLanguage: ko`) — 없으면 '뒤로'·공유 창 등 시스템 글자가 영어로 나온다. 화면 테스트는 `setUp`에서 한국어 지역 인자로 앱을 띄우므로, 테스트에서 글자를 찾을 때 시각은 `9:10`처럼 숫자 부분만 맞출 것(`오전 9:10`).

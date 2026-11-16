@@ -1,6 +1,7 @@
 name: PhotoTidy
 options:
   bundleIdPrefix: com.heejung
+  developmentLanguage: ko
   deploymentTarget:
     iOS: "17.0"
 packages:

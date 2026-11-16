@@ -6,6 +6,11 @@ final class SmokeTests: XCTestCase {
     private let app = XCUIApplication()
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
 
+    /// 캡처가 한국어 날짜·시각으로 나오도록 앱을 한국어 지역으로 띄운다.
+    override func setUp() {
+        app.launchArguments = ["-AppleLanguages", "(ko)", "-AppleLocale", "ko_KR"]
+    }
+
     private func shot(_ name: String) {
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("\(name).png")
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: url)
@@ -123,7 +128,7 @@ final class SmokeTests: XCTestCase {
 
     /// 앨범 전체 타임라인. 앱이 "-sampleAlbum" 인자로 사진첩 전체를 담은 "샘플 앨범"을 만든다.
     func testAlbumTimeline() {
-        app.launchArguments = ["-sampleAlbum"]
+        app.launchArguments += ["-sampleAlbum"]
         app.launch()
         grantAccessIfNeeded()
         app.tabBars.buttons["타임라인"].tap()
