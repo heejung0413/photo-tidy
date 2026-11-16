@@ -7,4 +7,6 @@ public enum Tuning {
     public static let distanceThreshold: Float = 0.5
     /// 확보 용량 어림용: 픽셀당 바이트.
     public static let estimatedBytesPerPixel: Double = 0.2
+    /// 타임라인: 머문 곳 중심에서 이 거리(미터) 이내면 같은 곳으로 본다.
+    public static let stopRadius: Double = 200
 }

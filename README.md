@@ -1,7 +1,9 @@
 # Photo Tidy
 
 아이폰 사진첩에서 연달아 찍은 비슷한 사진을 묶고, 잘 나온 한 장을 추천해 나머지를 지우는 개인용 앱.
-사진은 기기 밖으로 나가지 않는다(서버 없음).
+하루 동안 찍은 사진을 위치와 시간으로 묶어 지도와 목록으로 보여 주는 타임라인도 있다.
+
+사진은 기기 밖으로 나가지 않는다. 타임라인의 장소 이름을 받을 때만 머문 곳의 좌표가 애플 지도 서버로 전송된다.
 
 ## 화면
 
@@ -12,6 +14,10 @@
 | 묶음 상세 | 삭제 확인 | 정리 완료 |
 | --- | --- | --- |
 | <img src="docs/screenshots/4-detail.png" width="220"> | <img src="docs/screenshots/5-confirm.png" width="220"> | <img src="docs/screenshots/6-done.png" width="220"> |
+
+| 타임라인 |
+| --- |
+| <img src="docs/screenshots/7-timeline.png" width="220"> |
 
 ## 준비
 
@@ -43,12 +49,14 @@ Xcode 상단에서 실행 대상(시뮬레이터 또는 연결한 아이폰)을 
 swift test --package-path PhotoTidyCore
 ```
 
-시뮬레이터 스모크 테스트(권한 허용 → 분석 → 묶음 상세 → 삭제까지 자동 조작). 시뮬레이터 사진첩에 같은 사진 2장이 연달아 들어 있어야 하고, 실제로 1장을 삭제한다:
+시뮬레이터 스모크 테스트(권한 허용 → 분석 → 묶음 상세 → 삭제, 타임라인 탭 표시까지 자동 조작). 시뮬레이터 사진첩에 같은 사진 2장이 연달아 들어 있어야 하고, 실제로 1장을 삭제한다:
 
 ```bash
 xcrun simctl list devices available | grep iPhone      # 기기 ID 확인
 xcrun simctl boot <기기 ID>
 xcrun simctl addmedia <기기 ID> a.jpg a-copy.jpg       # 같은 사진 두 장
+swift scripts/make-timeline-samples.swift build/timeline-samples   # 위치·시각이 든 타임라인 샘플 4장
+xcrun simctl addmedia <기기 ID> build/timeline-samples/*.jpg
 xcrun simctl uninstall <기기 ID> com.heejung.phototidy # 이전 분석 결과·권한 초기화
 xcodebuild test -project PhotoTidy.xcodeproj -scheme PhotoTidy \
   -destination "platform=iOS Simulator,id=<기기 ID>" -derivedDataPath build
@@ -60,10 +68,12 @@ xcodebuild test -project PhotoTidy.xcodeproj -scheme PhotoTidy \
 
 - `maxGap`: 연달아 찍은 사진으로 보는 시간 간격(초)
 - `distanceThreshold`: 비슷하다고 보는 정도. 다른 사진이 같이 묶이면 낮추고, 비슷한 사진이 안 묶이면 높인다.
+- `stopRadius`: 타임라인에서 같은 곳에 머문 것으로 보는 반경(미터)
 
 ## 구조
 
 - `PhotoTidyCore/`: 묶기·추천·저장 로직(화면과 사진첩에 의존하지 않음)
 - `PhotoTidy/`: 사진첩 접근, 화면
 - `PhotoTidyUITests/`: 시뮬레이터 스모크 테스트
-- 설계: `docs/superpowers/specs/2026-11-16-photo-tidy-design.md`
+- `scripts/`: 테스트용 샘플 사진 생성
+- 설계: `docs/superpowers/specs/`

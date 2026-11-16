@@ -15,14 +15,7 @@ final class SmokeTests: XCTestCase {
     func testAnalyzeAndDeleteDuplicates() {
         app.launch()
 
-        let allow = app.buttons["사진 접근 허용"]
-        if allow.waitForExistence(timeout: 3) {
-            allow.tap()
-            let full = springboard.buttons.matching(
-                NSPredicate(format: "label IN %@", ["전체 접근 허용", "Allow Full Access"])).firstMatch
-            XCTAssertTrue(full.waitForExistence(timeout: 10))
-            full.tap()
-        }
+        grantAccessIfNeeded()
 
         let start = app.buttons.matching(NSPredicate(format: "label IN %@", ["분석 시작", "새 사진 분석"])).firstMatch
         XCTAssertTrue(start.waitForExistence(timeout: 10))
@@ -52,5 +45,37 @@ final class SmokeTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["정리할 묶음이 없어요"].waitForExistence(timeout: 10))
         shot("6-done")
+    }
+
+    private func grantAccessIfNeeded() {
+        let allow = app.buttons["사진 접근 허용"]
+        guard allow.waitForExistence(timeout: 3) else { return }
+        allow.tap()
+        let full = springboard.buttons.matching(
+            NSPredicate(format: "label IN %@", ["전체 접근 허용", "Allow Full Access"])).firstMatch
+        XCTAssertTrue(full.waitForExistence(timeout: 10))
+        full.tap()
+    }
+
+    /// 샘플 사진(scripts/make-timeline-samples.swift, 2026-11-14)이 사진첩에 있어야 한다.
+    func testTimelineShowsStopsForSampleDay() {
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let previous = app.buttons["이전 날"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 20))
+        let sampleStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
+        for _ in 0..<10 where !sampleStop.exists {
+            if previous.isEnabled {
+                previous.tap()
+            }
+            sleep(1)
+        }
+        XCTAssertTrue(sampleStop.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "2장")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "3:20")).firstMatch.exists)
+        sleep(5) // 장소 이름과 지도 불러오기
+        shot("7-timeline")
     }
 }
