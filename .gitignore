@@ -3,3 +3,5 @@
 build/
 *.xcodeproj
 xcuserdata/
+PhotoTidy/Info.plist
+build.log
