@@ -30,8 +30,5 @@ struct GroupListView: View {
         }
         .navigationTitle("비슷한 사진 묶음")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: StoredGroup.self) { group in
-            GroupDetailView(group: group)
-        }
     }
 }

@@ -1,4 +1,10 @@
+import PhotoTidyCore
 import SwiftUI
+
+/// 값으로 이동하는 화면. 묶음 상세는 StoredGroup 값으로 이동한다.
+enum Route: Hashable {
+    case groupList
+}
 
 struct HomeView: View {
     @Environment(AppModel.self) private var model
@@ -30,6 +36,12 @@ struct HomeView: View {
             }
             .padding()
             .navigationTitle("Photo Tidy")
+            .navigationDestination(for: Route.self) { _ in
+                GroupListView()
+            }
+            .navigationDestination(for: StoredGroup.self) { group in
+                GroupDetailView(group: group)
+            }
         }
     }
 
@@ -70,9 +82,7 @@ struct HomeView: View {
                 .font(.title2.bold())
             Text("정리하면 \(model.deletableCount)장 · 약 \(size) 확보")
                 .foregroundStyle(.secondary)
-            NavigationLink("묶음 보기") {
-                GroupListView()
-            }
+            NavigationLink("묶음 보기", value: Route.groupList)
             .buttonStyle(.bordered)
         }
         if model.unreadable > 0 {

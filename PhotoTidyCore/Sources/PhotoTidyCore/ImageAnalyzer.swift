@@ -15,6 +15,11 @@ public enum ImageAnalyzer {
     public static func analyze(_ image: CGImage) throws -> ImageAnalysis {
         let printRequest = VNGenerateImageFeaturePrintRequest()
         let faceRequest = VNDetectFaceCaptureQualityRequest()
+        #if targetEnvironment(simulator)
+        // 시뮬레이터에는 Vision이 쓰는 가속 장치가 없어 CPU로만 돌려야 한다.
+        printRequest.usesCPUOnly = true
+        faceRequest.usesCPUOnly = true
+        #endif
         try VNImageRequestHandler(cgImage: image, options: [:]).perform([printRequest, faceRequest])
         guard let featurePrint = printRequest.results?.first else {
             throw ImageAnalyzerError.noFeaturePrint

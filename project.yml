@@ -14,6 +14,9 @@ targets:
       - PhotoTidy
     dependencies:
       - package: PhotoTidyCore
+    scheme:
+      testTargets:
+        - PhotoTidyUITests
     info:
       path: PhotoTidy/Info.plist
       properties:
@@ -30,3 +33,15 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+  PhotoTidyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - PhotoTidyUITests
+    dependencies:
+      - target: PhotoTidy
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.heejung.phototidy.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
