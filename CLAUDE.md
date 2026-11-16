@@ -4,7 +4,7 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 
 ## Learned Rules
 
-- **GitHub 저장소는 `heejung0413/photo-tidy`(비공개)**. gh 활성 계정은 평소 `jiran-heejung0413`이라 그대로 push/pull 하면 "Repository not found". `gh auth switch --user heejung0413` → push → `gh auth switch --user jiran-heejung0413`으로 되돌릴 것. 푸시는 사용자가 요청할 때만.
+- **GitHub 저장소는 `heejung0413/photo-tidy`(비공개)**. 이 맥의 전역 git 인증은 gh의 "활성 계정"(평소 `jiran-heejung0413`)을 쓰므로 그대로면 push/pull이 "Repository not found". 2026-11-16부터 이 저장소 로컬 config(`credential.https://github.com.helper`)가 `gh auth token --user heejung0413`으로 인증하게 해 두어, 계정 전환 없이 터미널·Fork 앱 모두에서 push 된다(토큰은 config에 저장되지 않음). 저장소를 새로 clone하면 이 설정이 없으니 다시 넣을 것. 푸시는 사용자가 요청할 때만.
 - `PhotoTidy.xcodeproj`와 `PhotoTidy/Info.plist`는 XcodeGen 산출물(gitignore). 파일을 추가·삭제하거나 `project.yml`을 고치면 `xcodegen generate`를 다시 돌릴 것. 다시 생성하면 Xcode에서 고른 Team이 지워지므로, Team ID를 알게 되면 `project.yml`의 `DEVELOPMENT_TEAM`에 적을 것.
 - 로직은 `PhotoTidyCore`(화면·사진첩·네트워크 의존 없음)에 두고 `swift test --package-path PhotoTidyCore`로 검증. 앱 타깃에는 Photos/MapKit 래퍼와 화면만.
 - xcodebuild 시뮬레이터 지정은 이름이 아니라 ID로: `-destination "platform=iOS Simulator,id=08B467F7-DA62-4748-A245-33434F9B4D87"`(iPhone 15 Pro, iOS 17.5). 이름으로 주면 `OS:latest`(26.x)에서 찾다가 "Unable to find a device"로 실패한다.
