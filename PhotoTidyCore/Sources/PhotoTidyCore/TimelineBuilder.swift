@@ -39,6 +39,11 @@ public struct TimelineDay: Identifiable, Hashable, Sendable {
     public let day: Date
     public let stops: [TimelineStop]
 
+    public init(day: Date, stops: [TimelineStop]) {
+        self.day = day
+        self.stops = stops
+    }
+
     public var id: Date { day }
 }
 

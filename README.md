@@ -3,6 +3,7 @@
 아이폰 사진첩에서 연달아 찍은 비슷한 사진을 묶고, 잘 나온 한 장을 추천해 나머지를 지우는 개인용 앱.
 하루 동안 찍은 사진을 위치와 시간으로 묶어 지도와 목록으로 보여 주는 타임라인도 있다.
 타임라인은 앨범(사진 앱의 공유 앨범 포함) 하나를 골라 여러 날을 한 화면에 이어 볼 수도 있다.
+장소 이름은 연필 버튼으로 직접 고칠 수 있고, 보고 있는 타임라인을 이미지 한 장으로 만들어 공유할 수 있다.
 
 사진은 기기 밖으로 나가지 않는다. 타임라인의 장소 이름을 받을 때만 머문 곳의 좌표가 애플 지도 서버로 전송된다.
 
@@ -19,6 +20,10 @@
 | 타임라인 (하루씩) | 범위 선택 | 앨범 전체 |
 | --- | --- | --- |
 | <img src="docs/screenshots/7-timeline.png" width="220"> | <img src="docs/screenshots/album/a1-pick-album.png" width="220"> | <img src="docs/screenshots/album/a2-album-timeline.png" width="220"> |
+
+| 장소 이름 고치기 | 공유 창 | 공유되는 이미지 |
+| --- | --- | --- |
+| <img src="docs/screenshots/share/r1-rename.png" width="220"> | <img src="docs/screenshots/share/r3-share-sheet.png" width="220"> | <img src="docs/screenshots/share/r4-shared-image.jpg" width="220"> |
 
 ## 준비
 

@@ -10,6 +10,10 @@ struct TimelineView: View {
     @State private var isPickingDate = false
     @State private var pickedDate = Date()
     @State private var viewing: TimelinePhoto?
+    @State private var renaming: TimelineStop?
+    @State private var newName = ""
+    @State private var isPreparingShare = false
+    @State private var shared: SharedFile?
 
     private struct Pin: Identifiable {
         let id: String
@@ -53,6 +57,9 @@ struct TimelineView: View {
                     ToolbarItem(placement: .principal) {
                         sourceMenu
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        shareButton
+                    }
                 }
             }
         }
@@ -69,6 +76,21 @@ struct TimelineView: View {
         }
         .sheet(isPresented: $isPickingDate) {
             datePicker
+        }
+        .sheet(item: $shared) { file in
+            ActivityView(items: [file.url])
+                .presentationDetents([.medium, .large])
+        }
+        .alert("장소 이름", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("이름", text: $newName)
+            Button("저장") {
+                if let stop = renaming {
+                    model.rename(stop, to: newName)
+                }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("비워 두고 저장하면 자동으로 찾은 이름으로 돌아가요.")
         }
         .sheet(item: $viewing) { photo in
             AssetImage(id: photo.id, targetSize: CGSize(width: 1600, height: 1600), contentMode: .fit,
@@ -93,6 +115,27 @@ struct TimelineView: View {
                 }
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var shareButton: some View {
+        if isPreparingShare {
+            ProgressView()
+        } else {
+            Button {
+                isPreparingShare = true
+                Task {
+                    if let url = await TimelineShare.makeFile(model: model, library: app.library) {
+                        shared = SharedFile(url: url)
+                    }
+                    isPreparingShare = false
+                }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .disabled(model.stops.isEmpty || model.isLoading)
+            .accessibilityLabel("타임라인 공유")
         }
     }
 
@@ -281,9 +324,21 @@ struct TimelineView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+                    Spacer(minLength: 0)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .overlay(alignment: .trailing) {
+                Button {
+                    newName = model.customName(for: stop) ?? ""
+                    renaming = stop
+                } label: {
+                    Image(systemName: "pencil")
+                        .padding(8)
+                }
+                .accessibilityLabel("장소 이름 바꾸기")
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 6) {

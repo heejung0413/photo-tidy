@@ -24,13 +24,42 @@ final class TimelineModel {
     /// 머문 곳 id → 장소 이름.
     private(set) var names: [String: String] = [:]
     private(set) var isLoading = false
+    /// 직접 붙인 장소 이름. 키는 customKey(for:) 참고.
+    private(set) var customNames: [String: String] = [:]
 
     private let library: PhotoLibrary
     private let namer = PlaceNamer()
     private var loadTask: Task<Void, Never>?
 
+    private let customNamesURL: URL
+
     init(library: PhotoLibrary) {
         self.library = library
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        customNamesURL = directory.appendingPathComponent("custom-place-names.json")
+        customNames = (try? JSONDecoder().decode([String: String].self,
+                                                 from: Data(contentsOf: customNamesURL))) ?? [:]
+    }
+
+    /// 위치가 있으면 좌표(소수 셋째 자리, 약 100m 칸)로 묶어 같은 곳에 다시 가도 이름이 따라온다.
+    /// 위치가 없으면 그 머문 곳(첫 사진)에만 붙는다.
+    private func customKey(for stop: TimelineStop) -> String {
+        if let center = stop.center {
+            return String(format: "%.3f,%.3f", center.latitude, center.longitude)
+        }
+        return "photo:\(stop.id)"
+    }
+
+    func customName(for stop: TimelineStop) -> String? {
+        customNames[customKey(for: stop)]
+    }
+
+    /// 장소 이름을 직접 정한다. 빈 글자면 직접 붙인 이름을 지우고 자동 이름으로 돌아간다.
+    func rename(_ stop: TimelineStop, to text: String) {
+        let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        customNames[customKey(for: stop)] = name.isEmpty ? nil : name
+        try? JSONEncoder().encode(customNames).write(to: customNamesURL, options: .atomic)
     }
 
     var previousDay: Date? {
@@ -131,6 +160,9 @@ final class TimelineModel {
     }
 
     func title(for stop: TimelineStop) -> String {
+        if let custom = customName(for: stop) {
+            return custom
+        }
         if let name = names[stop.id] {
             return name
         }

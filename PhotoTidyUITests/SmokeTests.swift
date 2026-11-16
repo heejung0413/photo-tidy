@@ -148,4 +148,38 @@ final class SmokeTests: XCTestCase {
         sleep(2)
         shot("a3-album-scrolled")
     }
+
+    /// 장소 이름 직접 고치기 → 타임라인 이미지 공유. 샘플 사진(2026-11-14)이 사진첩에 있어야 한다.
+    func testRenameStopAndShare() {
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let previous = app.buttons["이전 날"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 20))
+        let sampleStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
+        for _ in 0..<10 where !sampleStop.exists {
+            if previous.isEnabled {
+                previous.tap()
+            }
+            sleep(1)
+        }
+        XCTAssertTrue(sampleStop.waitForExistence(timeout: 10))
+
+        app.buttons.matching(identifier: "장소 이름 바꾸기").firstMatch.tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.typeText("Our Cafe")
+        sleep(1)
+        shot("r1-rename")
+        app.alerts.buttons["저장"].tap()
+        XCTAssertTrue(app.staticTexts["Our Cafe"].waitForExistence(timeout: 10))
+        sleep(4)
+        shot("r2-renamed")
+
+        app.buttons["타임라인 공유"].tap()
+        XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: 60))
+        sleep(2)
+        shot("r3-share-sheet")
+    }
 }
