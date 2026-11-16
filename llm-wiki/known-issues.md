@@ -26,7 +26,7 @@
 ## 사소한 것
 
 - 썸네일 전부에 같은 음성 안내 "사진 크게 보기"(테스트용 이름). `accessibilityIdentifier`로 옮기는 게 맞다.
-- 시간 표시·기간 문구·좌표 키·사진 변환 코드가 두 군데씩 복사돼 있다.
+- 사진 → `TimelinePhoto` 변환 코드가 두 군데(`PhotoLibrary+Timeline`, `PhotoLibrary+Albums`)에 복사돼 있다. (시간 표시·기간 문구·좌표 키 중복은 2026-11-16에 Core로 합쳐 해결)
 
 ## 실제 기기에서 확인할 것 (미검증)
 

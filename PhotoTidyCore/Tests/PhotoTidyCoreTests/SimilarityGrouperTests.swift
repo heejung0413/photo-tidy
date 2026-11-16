@@ -37,4 +37,30 @@ final class SimilarityGrouperTests: XCTestCase {
         let groups = SimilarityGrouper.groups(in: segment, threshold: 0.5, distance: distance([:]))
         XCTAssertTrue(groups.isEmpty)
     }
+
+    // MARK: 경계값
+
+    func testGapExactlyMaxGapStaysInSameSegment() {
+        let segments = SimilarityGrouper.segments([photo("a", at: 0), photo("b", at: 60), photo("c", at: 120.5)],
+                                                  maxGap: 60)
+        XCTAssertEqual(segments.map { $0.map(\.id) }, [["a", "b"], ["c"]])
+    }
+
+    func testEmptyInputGivesNoSegmentsAndNoGroups() {
+        XCTAssertTrue(SimilarityGrouper.segments([]).isEmpty)
+        XCTAssertTrue(SimilarityGrouper.groups(in: [], threshold: 0.5) { _, _ in 0 }.isEmpty)
+    }
+
+    func testDistanceExactlyThresholdCountsAsSimilar() {
+        let segment = [photo("a", at: 0), photo("b", at: 1), photo("c", at: 2)]
+        let groups = SimilarityGrouper.groups(in: segment, threshold: 0.5) { first, second in
+            Set([first.id, second.id]) == ["a", "b"] ? 0.5 : 0.5001
+        }
+        XCTAssertEqual(groups.map { $0.map(\.id).sorted() }, [["a", "b"]])
+    }
+
+    func testNothingSimilarGivesNoGroups() {
+        let segment = [photo("a", at: 0), photo("b", at: 1)]
+        XCTAssertTrue(SimilarityGrouper.groups(in: segment, threshold: 0.5) { _, _ in 0.9 }.isEmpty)
+    }
 }

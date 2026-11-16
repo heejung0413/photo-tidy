@@ -18,7 +18,7 @@ final class PlaceNamer {
 
     /// 실패하면 nil.
     func name(for coordinate: Coordinate) async -> String? {
-        let key = String(format: "%.3f,%.3f", coordinate.latitude, coordinate.longitude)
+        let key = PlaceKey.string(for: coordinate)
         if let cached = cache[key] {
             return cached
         }

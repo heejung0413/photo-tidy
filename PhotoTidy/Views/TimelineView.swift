@@ -261,9 +261,7 @@ struct TimelineView: View {
         guard let first = model.sections.first?.day, let last = model.sections.last?.day else {
             return "\(count)장"
         }
-        let format = Date.FormatStyle.dateTime.year().month().day()
-        let period = first == last ? first.formatted(format) : "\(first.formatted(format)) – \(last.formatted(format))"
-        return "\(period) · \(count)장"
+        return "\(TimelineText.period(from: first, to: last)) · \(count)장"
     }
 
     private func header(_ day: Date) -> some View {
@@ -324,7 +322,7 @@ struct TimelineView: View {
                         Text(model.title(for: stop))
                             .font(.headline)
                             .padding(.trailing, 32)
-                        Text("\(timeRange(stop)) · \(stop.photos.count)장")
+                        Text("\(TimelineText.timeRange(stop)) · \(stop.photos.count)장")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -384,12 +382,6 @@ struct TimelineView: View {
                 }
         }
         .presentationDetents([.medium, .large])
-    }
-
-    private func timeRange(_ stop: TimelineStop) -> String {
-        let start = stop.start.formatted(date: .omitted, time: .shortened)
-        let end = stop.end.formatted(date: .omitted, time: .shortened)
-        return start == end ? start : "\(start)–\(end)"
     }
 
     private func focus(_ stop: TimelineStop) {

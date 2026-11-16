@@ -24,8 +24,8 @@ final class TimelineModel {
     /// 머문 곳 id → 장소 이름.
     private(set) var names: [String: String] = [:]
     private(set) var isLoading = false
-    /// 직접 붙인 장소 이름. 키는 customKey(for:) 참고.
-    private(set) var customNames: [String: String] = [:]
+    /// 직접 붙인 장소 이름.
+    private(set) var customNames = CustomPlaceNames()
 
     private let library: PhotoLibrary
     private let namer = PlaceNamer()
@@ -38,38 +38,29 @@ final class TimelineModel {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         customNamesURL = directory.appendingPathComponent("custom-place-names.json")
-        customNames = (try? JSONDecoder().decode([String: String].self,
-                                                 from: Data(contentsOf: customNamesURL))) ?? [:]
-    }
-
-    /// 위치가 있으면 좌표(소수 셋째 자리, 약 100m 칸)로 묶어 같은 곳에 다시 가도 이름이 따라온다.
-    /// 위치가 없으면 그 머문 곳(첫 사진)에만 붙는다.
-    private func customKey(for stop: TimelineStop) -> String {
-        if let center = stop.center {
-            return String(format: "%.3f,%.3f", center.latitude, center.longitude)
+        if let saved = try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: customNamesURL)) {
+            customNames = CustomPlaceNames(names: saved)
         }
-        return "photo:\(stop.id)"
     }
 
     func customName(for stop: TimelineStop) -> String? {
-        customNames[customKey(for: stop)]
+        customNames.name(for: stop)
     }
 
     /// 장소 이름을 직접 정한다. 빈 글자면 직접 붙인 이름을 지우고 자동 이름으로 돌아간다.
     func rename(_ stop: TimelineStop, to text: String) {
-        let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        customNames[customKey(for: stop)] = name.isEmpty ? nil : name
-        try? JSONEncoder().encode(customNames).write(to: customNamesURL, options: .atomic)
+        customNames.rename(stop, to: text)
+        try? JSONEncoder().encode(customNames.names).write(to: customNamesURL, options: .atomic)
     }
 
     var previousDay: Date? {
         guard let day else { return nil }
-        return days.last { $0 < day }
+        return DayNavigator.previous(before: day, in: days)
     }
 
     var nextDay: Date? {
         guard let day else { return nil }
-        return days.first { $0 > day }
+        return DayNavigator.next(after: day, in: days)
     }
 
     /// 날짜·앨범 목록을 읽고, 보고 있던 날이 없으면 가장 최근 날을 연다.
@@ -116,9 +107,7 @@ final class TimelineModel {
 
     /// date와 가장 가까운, 사진이 있는 날을 연다.
     func showNearest(to date: Date) {
-        let target = Calendar.current.startOfDay(for: date)
-        let nearest = days.min { abs($0.timeIntervalSince(target)) < abs($1.timeIntervalSince(target)) }
-        if let nearest {
+        if let nearest = DayNavigator.nearest(to: date, in: days) {
             show(nearest)
         }
     }

@@ -78,4 +78,22 @@ final class GroupStoreTests: XCTestCase {
         state.skip(groupID: "a")
         XCTAssertTrue(state.groups[0].isSkipped)
     }
+
+    // MARK: 파일이 깨졌을 때
+
+    func testLoadBrokenFileGivesEmptyState() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("{ not json".utf8).write(to: url)
+        XCTAssertEqual(GroupStore(url: url).load(), StoreState())
+    }
+
+    func testSaveOverwritesPreviousState() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = GroupStore(url: url)
+        try store.save(StoreState(groups: [group(["a", "b"], recommended: "a")]))
+        try store.save(StoreState())
+        XCTAssertEqual(store.load(), StoreState())
+    }
 }

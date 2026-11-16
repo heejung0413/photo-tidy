@@ -97,4 +97,34 @@ final class TimelineBuilderTests: XCTestCase {
         XCTAssertEqual(TimelineBuilder.days(photos, calendar: seoul).map { ids($0.stops) }, [[["a", "b"]], [["c"]]])
         XCTAssertEqual(TimelineBuilder.days(photos, calendar: utc).count, 1)
     }
+
+    // MARK: 경계값
+
+    func testRadiusBoundary() {
+        // 위도 0.001도는 약 111m.
+        let near = TimelineBuilder.stops([tp("a", at: 0, 37.0), tp("b", at: 60, 37.001)], radius: 112)
+        XCTAssertEqual(ids(near), [["a", "b"]])
+        let far = TimelineBuilder.stops([tp("a", at: 0, 37.0), tp("b", at: 60, 37.001)], radius: 110)
+        XCTAssertEqual(ids(far), [["a"], ["b"]])
+    }
+
+    func testCenterFollowsAverageSoSlowDriftStaysInOneStop() {
+        // 한 번에 150m씩 움직여도, 중심(평균)에서 200m를 넘지 않으면 같은 머문 곳이다.
+        let stops = TimelineBuilder.stops([tp("a", at: 0, 37.0), tp("b", at: 60, 37.00135), tp("c", at: 120, 37.0022)],
+                                          radius: 200)
+        XCTAssertEqual(ids(stops), [["a", "b", "c"]])
+    }
+
+    func testDistanceIsZeroForSamePointAndSymmetric() {
+        let seoul = Coordinate(latitude: 37.5446, longitude: 127.0559)
+        let namsan = Coordinate(latitude: 37.5512, longitude: 126.9882)
+        XCTAssertEqual(TimelineBuilder.distance(seoul, seoul), 0, accuracy: 0.001)
+        XCTAssertEqual(TimelineBuilder.distance(seoul, namsan), TimelineBuilder.distance(namsan, seoul), accuracy: 0.001)
+        XCTAssertEqual(TimelineBuilder.distance(seoul, namsan), 6_010, accuracy: 60)
+    }
+
+    func testStopIdIsFirstPhotoId() {
+        let stops = TimelineBuilder.stops([tp("late", at: 60, 37.0), tp("early", at: 0, 37.0)])
+        XCTAssertEqual(stops.map(\.id), ["early"])
+    }
 }

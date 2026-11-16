@@ -32,24 +32,13 @@ final class AppModel {
     var hasAnalyzed: Bool { state.watermark != nil }
 
     /// 숨기지 않은 묶음, 최신순.
-    var visibleGroups: [StoredGroup] {
-        state.groups
-            .filter { !$0.isSkipped }
-            .sorted { $0.photos[0].item.takenAt > $1.photos[0].item.takenAt }
-    }
+    var visibleGroups: [StoredGroup] { state.visibleGroups }
 
     /// 추천 한 장씩만 남길 때 지울 수 있는 장수.
-    var deletableCount: Int {
-        visibleGroups.reduce(0) { $0 + $1.photos.count - 1 }
-    }
+    var deletableCount: Int { state.deletableCount }
 
     /// 추천 한 장씩만 남길 때 확보되는 용량(어림).
-    var reclaimableBytes: Int64 {
-        let pixels = visibleGroups.reduce(0) { sum, group in
-            sum + group.photos.filter { $0.item.id != group.recommendedID }.reduce(0) { $0 + $1.item.pixelCount }
-        }
-        return Int64(Double(pixels) * Tuning.estimatedBytesPerPixel)
-    }
+    var reclaimableBytes: Int64 { state.reclaimableBytes }
 
     func refreshAccess() {
         switch library.status {

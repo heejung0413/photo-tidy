@@ -56,7 +56,7 @@ enum TimelineShare {
                     }
                 }
                 section.stops.append(Stop(id: stop.id, number: number, title: model.title(for: stop),
-                                          detail: "\(timeRange(stop)) · \(stop.photos.count)장",
+                                          detail: "\(TimelineText.timeRange(stop)) · \(stop.photos.count)장",
                                           thumbnails: thumbnails,
                                           moreCount: max(0, stop.photos.count - thumbnailsPerStop)))
                 if let center = stop.center {
@@ -74,10 +74,7 @@ enum TimelineShare {
         if case .album(let album) = model.source {
             title = album.title
             if let first = days.first?.day, let last = days.last?.day {
-                let format = Date.FormatStyle.dateTime.year().month().day()
-                let period = first == last ? first.formatted(format)
-                    : "\(first.formatted(format)) – \(last.formatted(format))"
-                subtitle = "\(period) · \(photoCount)장"
+                subtitle = "\(TimelineText.period(from: first, to: last)) · \(photoCount)장"
             }
         } else {
             title = days[0].day.formatted(.dateTime.year().month().day().weekday())
@@ -98,12 +95,6 @@ enum TimelineShare {
         } catch {
             return nil
         }
-    }
-
-    static func timeRange(_ stop: TimelineStop) -> String {
-        let start = stop.start.formatted(date: .omitted, time: .shortened)
-        let end = stop.end.formatted(date: .omitted, time: .shortened)
-        return start == end ? start : "\(start)–\(end)"
     }
 
     /// 번호 핀과 날짜별 경로 선을 그린 지도 그림. 위치가 없거나 지도를 못 받으면 nil.

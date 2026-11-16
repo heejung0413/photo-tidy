@@ -22,6 +22,10 @@ PhotoTidyUITests               시뮬레이터 화면 자동 조작 테스트
 | `SegmentProcessor.swift` | 구간 하나를 읽어 묶음으로 |
 | `GroupStore.swift` | 분석 결과 JSON 저장·병합·정리 |
 | `TimelineBuilder.swift` | 거리 계산, 머문 곳 만들기(`stops`), 날짜별로 나누기(`days`) |
+| `Summary.swift` | 보이는 묶음, 지울 수 있는 장수, 확보 용량(`StoreState` 확장) |
+| `PlaceNames.swift` | 장소 이름 저장 키(`PlaceKey`), 직접 붙인 이름(`CustomPlaceNames`) |
+| `DayNavigator.swift` | 이전·다음·가장 가까운 날 고르기 |
+| `TimelineText.swift` | 머문 시각 범위, 앨범 기간 글자 |
 
 ## 앱 (`PhotoTidy/`)
 
