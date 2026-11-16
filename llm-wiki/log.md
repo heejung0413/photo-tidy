@@ -2,6 +2,7 @@
 
 최신이 위. 형식: `날짜 | 무엇을 | 관련 페이지`.
 
+- 2026-11-16 | `dev-notes/` 추가: 사용자용 개발 지식 노트 12개(웹 개발자 기준 설명) | —
 - 2026-11-16 | 앱에 있던 계산을 Core로 옮기고 테스트 추가(40 → 74개) | [testing](testing.md), [architecture](architecture.md)
 - 2026-11-16 | 앱 기본 언어를 한국어로(`developmentLanguage: ko`), 화면 테스트를 한국어 지역으로 실행, 캡처 전체 갱신 | [ui](ui.md), [testing](testing.md)
 - 2026-11-16 | README 다시 정리(기능별 소개, 표, 알려진 한계) | —

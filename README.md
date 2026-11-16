@@ -109,6 +109,7 @@ xcodebuild test -project PhotoTidy.xcodeproj -scheme PhotoTidy \
 | `scripts/` | 테스트용 샘플 사진 생성 |
 | `docs/superpowers/specs/` | 기능별 설계 문서 |
 | `llm-wiki/` | 구조, 규칙, 결정, 알려진 문제를 정리한 위키 ([목차](llm-wiki/index.md)) |
+| `dev-notes/` | 이 프로젝트를 이해하는 데 필요한 개발 지식 노트 ([목차](dev-notes/README.md)) |
 
 ## 알려진 한계
 
