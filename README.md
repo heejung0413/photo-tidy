@@ -3,6 +3,16 @@
 아이폰 사진첩에서 연달아 찍은 비슷한 사진을 묶고, 잘 나온 한 장을 추천해 나머지를 지우는 개인용 앱.
 사진은 기기 밖으로 나가지 않는다(서버 없음).
 
+## 화면
+
+| 홈 | 분석 결과 | 묶음 목록 |
+| --- | --- | --- |
+| <img src="docs/screenshots/1-home.png" width="220"> | <img src="docs/screenshots/2-summary.png" width="220"> | <img src="docs/screenshots/3-list.png" width="220"> |
+
+| 묶음 상세 | 삭제 확인 | 정리 완료 |
+| --- | --- | --- |
+| <img src="docs/screenshots/4-detail.png" width="220"> | <img src="docs/screenshots/5-confirm.png" width="220"> | <img src="docs/screenshots/6-done.png" width="220"> |
+
 ## 준비
 
 - Xcode 26 이상, XcodeGen(`brew install xcodegen`)
