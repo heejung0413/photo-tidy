@@ -125,9 +125,10 @@ enum TimelineShare {
         options.traitCollection = UITraitCollection(userInterfaceStyle: .light)
         guard let snapshot = try? await MKMapSnapshotter(options: options).start() else { return nil }
 
+        let accent = UIColor(Theme.accent)
         return UIGraphicsImageRenderer(size: size).image { _ in
             snapshot.image.draw(at: .zero)
-            UIColor.systemBlue.setStroke()
+            accent.setStroke()
             for route in routes where route.count > 1 {
                 let path = UIBezierPath()
                 path.lineWidth = 3
@@ -144,12 +145,11 @@ enum TimelineShare {
             for pin in all {
                 let center = snapshot.point(for: pin.coordinate)
                 let circle = UIBezierPath(ovalIn: CGRect(x: center.x - 11, y: center.y - 11, width: 22, height: 22))
-                UIColor.systemBlue.setFill()
+                accent.setFill()
                 circle.fill()
                 UIColor.white.setStroke()
                 circle.lineWidth = 2
                 circle.stroke()
-                UIColor.systemBlue.setStroke()
                 let text = "\(pin.number)" as NSString
                 let textSize = text.size(withAttributes: attributes)
                 text.draw(at: CGPoint(x: center.x - textSize.width / 2, y: center.y - textSize.height / 2),
@@ -211,7 +211,7 @@ enum TimelineShare {
                         .font(.caption.bold())
                         .foregroundStyle(.white)
                         .frame(width: 24, height: 24)
-                        .background(.blue, in: Circle())
+                        .background(Theme.accent, in: Circle())
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stop.title)
                             .font(.headline)

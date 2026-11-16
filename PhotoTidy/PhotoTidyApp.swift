@@ -16,12 +16,13 @@ struct PhotoTidyApp: App {
         WindowGroup {
             TabView {
                 HomeView()
-                    .tabItem { Label("정리", systemImage: "square.stack") }
+                    .tabItem { Label("정리", systemImage: "sparkles.rectangle.stack") }
                 TimelineView()
                     .tabItem { Label("타임라인", systemImage: "map") }
             }
             .environment(model)
             .environment(timeline)
+            .tint(Theme.accent)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

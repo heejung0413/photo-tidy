@@ -116,6 +116,7 @@ struct TimelineView: View {
             }
             .padding()
         }
+        .background(Theme.background)
     }
 
     @ViewBuilder
@@ -205,6 +206,7 @@ struct TimelineView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                .card(padding: 12)
                 if !pins.isEmpty {
                     map
                 } else if !model.stops.isEmpty {
@@ -223,9 +225,10 @@ struct TimelineView: View {
                     HStack {
                         Text(item.section.day.formatted(dividerFormat))
                             .font(.subheadline.bold())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.accent)
                         VStack { Divider() }
                     }
+                    .padding(.top, 6)
                     .accessibilityElement(children: .combine)
                     .accessibilityAddTraits(.isHeader)
                     ForEach(Array(item.section.stops.enumerated()), id: \.element.id) { index, stop in
@@ -235,6 +238,7 @@ struct TimelineView: View {
             }
             .padding()
         }
+        .background(Theme.background)
     }
 
     /// 날짜별 묶음과, 그 앞까지의 머문 곳 수(번호를 앨범 전체에서 잇기 위해).
@@ -292,18 +296,21 @@ struct TimelineView: View {
             .disabled(model.nextDay == nil)
             .accessibilityLabel("다음 날")
         }
+        .fontWeight(.semibold)
+        .card(padding: 12)
     }
 
     private var map: some View {
         Map(position: $camera) {
             ForEach(pins) { pin in
                 Marker(pin.title, monogram: Text("\(pin.number)"), coordinate: pin.coordinate)
+                    .tint(Theme.accent)
             }
             MapPolyline(coordinates: pins.map(\.coordinate))
-                .stroke(.blue, lineWidth: 3)
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
         }
         .frame(height: 260)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
     }
 
     private func stopRow(_ stop: TimelineStop, number: Int) -> some View {
@@ -312,14 +319,11 @@ struct TimelineView: View {
                 focus(stop)
             } label: {
                 HStack(spacing: 10) {
-                    Text("\(number)")
-                        .font(.caption.bold())
-                        .foregroundStyle(.white)
-                        .frame(width: 24, height: 24)
-                        .background(.blue, in: Circle())
+                    NumberBadge(number: number)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(model.title(for: stop))
                             .font(.headline)
+                            .padding(.trailing, 32)
                         Text("\(timeRange(stop)) · \(stop.photos.count)장")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -335,6 +339,8 @@ struct TimelineView: View {
                     renaming = stop
                 } label: {
                     Image(systemName: "pencil")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                         .padding(8)
                 }
                 .accessibilityLabel("장소 이름 바꾸기")
@@ -346,18 +352,19 @@ struct TimelineView: View {
                         Button {
                             viewing = photo
                         } label: {
-                            AssetImage(id: photo.id, targetSize: CGSize(width: 200, height: 200),
+                            AssetImage(id: photo.id, targetSize: CGSize(width: 240, height: 240),
                                        allowNetwork: isAlbum)
-                                .frame(width: 72, height: 72)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("사진 크게 보기")
                     }
                 }
             }
-            .frame(height: 72)
+            .frame(height: 80)
         }
+        .card(padding: 12)
     }
 
     private var datePicker: some View {
