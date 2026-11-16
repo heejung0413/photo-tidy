@@ -25,64 +25,70 @@ enum TimelineShare {
         var stops: [Stop]
     }
 
-    /// 이미지를 임시 폴더에 저장하고 그 위치를 돌려준다. 머문 곳이 없으면 nil.
-    static func makeFile(model: TimelineModel, library: PhotoLibrary) async -> URL? {
+    /// 공유할 내용. 버튼을 누른 순간의 화면 상태를 담는다.
+    struct Request {
+        let outline: ShareOutline
+        let title: String
+        let subtitle: String
+        let isAlbum: Bool
+    }
+
+    /// 지금 보고 있는 타임라인으로 공유 내용을 만든다. 머문 곳이 없으면 nil.
+    /// 기다리는 지점 없이 한 번에 끝나므로, 이후 날짜·범위를 바꿔도 내용이 섞이지 않는다.
+    static func request(model: TimelineModel) -> Request? {
         guard !model.stops.isEmpty else { return nil }
-        let isAlbum = model.source != .daily
         let days = model.sections.isEmpty
             ? [TimelineDay(day: model.day ?? model.stops[0].start, stops: model.stops)]
             : model.sections
+        let outline = ShareOutline(days: days, maxStops: maxStops, thumbnailsPerStop: thumbnailsPerStop) {
+            model.title(for: $0)
+        }
+        if case .album(let album) = model.source, let first = days.first?.day, let last = days.last?.day {
+            return Request(outline: outline, title: album.title,
+                           subtitle: "\(TimelineText.period(from: first, to: last)) · \(outline.photoCount)장",
+                           isAlbum: true)
+        }
+        return Request(outline: outline, title: days[0].day.formatted(.dateTime.year().month().day().weekday()),
+                       subtitle: "\(outline.photoCount)장", isAlbum: false)
+    }
 
+    /// 이미지를 임시 폴더에 저장하고 그 위치를 돌려준다.
+    static func makeFile(_ request: Request, library: PhotoLibrary) async -> URL? {
         var sections: [Section] = []
-        var routes: [[(number: Int, coordinate: CLLocationCoordinate2D)]] = []
-        var number = 0
-        for (index, day) in days.enumerated() where number < maxStops {
+        for (index, outlineSection) in request.outline.sections.enumerated() {
             var section = Section(
                 id: index,
-                header: isAlbum ? day.day.formatted(.dateTime.year().month().day().weekday()) : nil,
+                header: request.isAlbum
+                    ? outlineSection.day.formatted(.dateTime.year().month().day().weekday()) : nil,
                 stops: [])
-            var route: [(number: Int, coordinate: CLLocationCoordinate2D)] = []
-            for stop in day.stops where number < maxStops {
-                number += 1
+            for item in outlineSection.stops {
                 var thumbnails: [UIImage] = []
-                for photo in stop.photos.prefix(thumbnailsPerStop) {
+                for id in item.thumbnailIDs {
                     var last: UIImage?
-                    for await image in library.displayImages(id: photo.id, targetSize: CGSize(width: 240, height: 240),
-                                                             allowNetwork: isAlbum) {
+                    for await image in library.displayImages(id: id, targetSize: CGSize(width: 240, height: 240),
+                                                             allowNetwork: request.isAlbum) {
                         last = image
                     }
                     if let last {
                         thumbnails.append(last)
                     }
                 }
-                section.stops.append(Stop(id: stop.id, number: number, title: model.title(for: stop),
-                                          detail: "\(TimelineText.timeRange(stop)) · \(stop.photos.count)장",
-                                          thumbnails: thumbnails,
-                                          moreCount: max(0, stop.photos.count - thumbnailsPerStop)))
-                if let center = stop.center {
-                    route.append((number, CLLocationCoordinate2D(latitude: center.latitude,
-                                                                 longitude: center.longitude)))
-                }
+                section.stops.append(Stop(
+                    id: item.id, number: item.number, title: item.title,
+                    detail: "\(TimelineText.timeRange(item.stop)) · \(item.stop.photos.count)장",
+                    thumbnails: thumbnails, moreCount: item.moreCount))
             }
             sections.append(section)
-            routes.append(route)
         }
-
-        let photoCount = model.stops.reduce(0) { $0 + $1.photos.count }
-        let title: String
-        var subtitle = "\(photoCount)장"
-        if case .album(let album) = model.source {
-            title = album.title
-            if let first = days.first?.day, let last = days.last?.day {
-                subtitle = "\(TimelineText.period(from: first, to: last)) · \(photoCount)장"
-            }
-        } else {
-            title = days[0].day.formatted(.dateTime.year().month().day().weekday())
+        let routes = request.outline.routes.map { route in
+            route.map { (number: $0.number,
+                         coordinate: CLLocationCoordinate2D(latitude: $0.coordinate.latitude,
+                                                            longitude: $0.coordinate.longitude)) }
         }
 
         let map = await mapImage(routes: routes, size: CGSize(width: width - 32, height: 230))
-        let card = Card(title: title, subtitle: subtitle, map: map, sections: sections,
-                        hiddenStops: model.stops.count - number)
+        let card = Card(title: request.title, subtitle: request.subtitle, map: map, sections: sections,
+                        hiddenStops: request.outline.hiddenStops)
             .frame(width: width)
             .environment(\.colorScheme, .light)
         let renderer = ImageRenderer(content: card)

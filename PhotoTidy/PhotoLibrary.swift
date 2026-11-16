@@ -12,13 +12,10 @@ final class PhotoLibrary: Sendable {
         await PHPhotoLibrary.requestAuthorization(for: .readWrite)
     }
 
-    /// 이미지 타입만, 촬영 시각 오름차순. date가 있으면 그 이후 사진만.
-    func fetchPhotos(after date: Date?) -> [PhotoItem] {
+    /// 사진첩의 사진 전체(이미지 타입만), 촬영 시각 오름차순.
+    func fetchPhotos() -> [PhotoItem] {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
-        if let date {
-            options.predicate = NSPredicate(format: "creationDate > %@", date as NSDate)
-        }
         var items: [PhotoItem] = []
         PHAsset.fetchAssets(with: .image, options: options).enumerateObjects { asset, _, _ in
             guard let takenAt = asset.creationDate else { return }

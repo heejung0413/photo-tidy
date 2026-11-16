@@ -9,4 +9,6 @@ public enum Tuning {
     public static let estimatedBytesPerPixel: Double = 0.2
     /// 타임라인: 머문 곳 중심에서 이 거리(미터) 이내면 같은 곳으로 본다.
     public static let stopRadius: Double = 200
+    /// 직접 붙인 장소 이름: 이 거리(미터) 이내의 머문 곳을 같은 곳으로 본다.
+    public static let placeNameRadius: Double = 80
 }

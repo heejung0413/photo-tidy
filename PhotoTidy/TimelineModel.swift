@@ -38,8 +38,8 @@ final class TimelineModel {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         customNamesURL = directory.appendingPathComponent("custom-place-names.json")
-        if let saved = try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: customNamesURL)) {
-            customNames = CustomPlaceNames(names: saved)
+        if let saved = try? JSONDecoder().decode(CustomPlaceNames.self, from: Data(contentsOf: customNamesURL)) {
+            customNames = saved
         }
     }
 
@@ -50,7 +50,7 @@ final class TimelineModel {
     /// 장소 이름을 직접 정한다. 빈 글자면 직접 붙인 이름을 지우고 자동 이름으로 돌아간다.
     func rename(_ stop: TimelineStop, to text: String) {
         customNames.rename(stop, to: text)
-        try? JSONEncoder().encode(customNames.names).write(to: customNamesURL, options: .atomic)
+        try? JSONEncoder().encode(customNames).write(to: customNamesURL, options: .atomic)
     }
 
     var previousDay: Date? {

@@ -127,4 +127,12 @@ final class TimelineBuilderTests: XCTestCase {
         let stops = TimelineBuilder.stops([tp("late", at: 60, 37.0), tp("early", at: 0, 37.0)])
         XCTAssertEqual(stops.map(\.id), ["early"])
     }
+
+    // MARK: 경로
+
+    func testDayRouteListsStopCentersAndSkipsStopsWithoutLocation() {
+        let days = TimelineBuilder.days([tp("a", at: 0, 37.0), tp("b", at: 60, 37.01),
+                                         tp("c", at: 86_400)], calendar: utc, radius: 200)
+        XCTAssertEqual(days.map { $0.route.map(\.latitude) }, [[37.0, 37.01], []])
+    }
 }

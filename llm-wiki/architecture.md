@@ -26,6 +26,8 @@ PhotoTidyUITests               시뮬레이터 화면 자동 조작 테스트
 | `PlaceNames.swift` | 장소 이름 저장 키(`PlaceKey`), 직접 붙인 이름(`CustomPlaceNames`) |
 | `DayNavigator.swift` | 이전·다음·가장 가까운 날 고르기 |
 | `TimelineText.swift` | 머문 시각 범위, 앨범 기간 글자 |
+| `AnalysisPlanner.swift` | 다음에 분석할 구간 고르기 |
+| `ShareOutline.swift` | 공유 이미지에 담을 내용(번호, 제목, 썸네일, 날짜별 경로) |
 
 ## 앱 (`PhotoTidy/`)
 
@@ -45,7 +47,7 @@ PhotoTidyUITests               시뮬레이터 화면 자동 조작 테스트
 
 | 파일 | 내용 |
 | --- | --- |
-| 분석 결과 JSON (`GroupStore`) | 묶음 목록, 기준 시각 |
+| `groups.json` (`GroupStore`) | 묶음 목록, 분석한 사진 id |
 | `place-names.json` | 자동으로 받은 장소 이름 캐시 (좌표 소수 셋째 자리 키) |
 | `custom-place-names.json` | 사용자가 직접 붙인 장소 이름 |
 

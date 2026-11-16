@@ -2,16 +2,46 @@ import Foundation
 
 public struct StoreState: Codable, Equatable, Sendable {
     public var groups: [StoredGroup]
-    /// 분석을 마친 마지막 사진의 촬영 시각.
-    public var watermark: Date?
+    /// 분석을 마친 사진. 여기 없는 사진이 든 구간은 다음 분석 대상이다.
+    public private(set) var analyzedIDs: Set<String>
+    /// 분석을 한 번이라도 돌렸는지.
+    public var hasAnalyzed: Bool
 
-    public init(groups: [StoredGroup] = [], watermark: Date? = nil) {
+    public init(groups: [StoredGroup] = [], analyzedIDs: Set<String> = [], hasAnalyzed: Bool = false) {
         self.groups = groups
-        self.watermark = watermark
+        self.analyzedIDs = analyzedIDs
+        self.hasAnalyzed = hasAnalyzed
     }
 
-    /// 다음 분석은 이 시각 이후 사진만 대상으로 한다.
-    public var resumeDate: Date? { watermark?.addingTimeInterval(-Tuning.maxGap) }
+    private enum CodingKeys: String, CodingKey {
+        case groups, analyzedIDs, hasAnalyzed
+        /// 예전 형식: 마지막으로 분석한 사진의 촬영 시각.
+        case watermark
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        groups = try container.decode([StoredGroup].self, forKey: .groups)
+        analyzedIDs = try container.decodeIfPresent(Set<String>.self, forKey: .analyzedIDs) ?? []
+        hasAnalyzed = try container.decodeIfPresent(Bool.self, forKey: .hasAnalyzed)
+            ?? container.contains(.watermark)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(groups, forKey: .groups)
+        try container.encode(analyzedIDs, forKey: .analyzedIDs)
+        try container.encode(hasAnalyzed, forKey: .hasAnalyzed)
+    }
+
+    public mutating func markAnalyzed<S: Sequence>(_ ids: S) where S.Element == String {
+        analyzedIDs.formUnion(ids)
+    }
+
+    /// 사진첩에서 사라진 사진의 분석 기록을 지운다.
+    public mutating func forgetAnalyzed(notIn existing: Set<String>) {
+        analyzedIDs.formIntersection(existing)
+    }
 
     /// 사진첩에서 사라진 사진을 빼고, 2장 미만이 된 묶음을 지운다.
     public mutating func prune(existing: Set<String>) {

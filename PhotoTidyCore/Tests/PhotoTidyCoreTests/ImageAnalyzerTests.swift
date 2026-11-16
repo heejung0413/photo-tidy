@@ -65,6 +65,7 @@ final class ImageAnalyzerTests: XCTestCase {
         let output = SegmentProcessor.process(segment, threshold: 0.01) { images[$0] }
         XCTAssertEqual(output.groups.map { $0.photos.map(\.item.id) }, [["a", "b"]])
         XCTAssertEqual(output.unreadable, 1)
+        XCTAssertEqual(output.unreadableIDs, ["d"])
         XCTAssertFalse(output.groups[0].isSkipped)
     }
 

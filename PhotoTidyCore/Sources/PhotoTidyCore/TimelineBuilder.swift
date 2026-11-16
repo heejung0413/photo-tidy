@@ -45,6 +45,8 @@ public struct TimelineDay: Identifiable, Hashable, Sendable {
     }
 
     public var id: Date { day }
+    /// 그날 머문 곳의 중심을 순서대로. 위치 없는 머문 곳은 뺀다.
+    public var route: [Coordinate] { stops.compactMap(\.center) }
 }
 
 public enum TimelineBuilder {

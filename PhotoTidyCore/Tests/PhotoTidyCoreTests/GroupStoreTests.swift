@@ -12,7 +12,7 @@ final class GroupStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url) }
         let store = GroupStore(url: url)
         let state = StoreState(groups: [group(["a", "b"], recommended: "b")],
-                               watermark: Date(timeIntervalSinceReferenceDate: 100))
+                               analyzedIDs: ["a", "b", "c"], hasAnalyzed: true)
         try store.save(state)
         XCTAssertEqual(store.load(), state)
     }
@@ -22,10 +22,35 @@ final class GroupStoreTests: XCTestCase {
         XCTAssertEqual(GroupStore(url: url).load(), StoreState())
     }
 
-    func testResumeDateIsWatermarkMinusMaxGap() {
-        let state = StoreState(watermark: Date(timeIntervalSinceReferenceDate: 100))
-        XCTAssertEqual(state.resumeDate, Date(timeIntervalSinceReferenceDate: 100 - Tuning.maxGap))
-        XCTAssertNil(StoreState().resumeDate)
+    func testNewStateHasAnalyzedNothing() {
+        XCTAssertTrue(StoreState().analyzedIDs.isEmpty)
+        XCTAssertFalse(StoreState().hasAnalyzed)
+    }
+
+    func testMarkAnalyzedRemembersPhotos() {
+        var state = StoreState()
+        state.markAnalyzed(["a", "b"])
+        state.markAnalyzed(["b", "c"])
+        XCTAssertEqual(state.analyzedIDs, ["a", "b", "c"])
+    }
+
+    func testForgetAnalyzedDropsPhotosNoLongerInLibrary() {
+        var state = StoreState(analyzedIDs: ["a", "b", "c"])
+        state.forgetAnalyzed(notIn: ["a", "c", "new"])
+        XCTAssertEqual(state.analyzedIDs, ["a", "c"])
+    }
+
+    /// 예전 형식(기준 시각만 저장) 파일: 묶음은 유지하고, 분석 기록이 없으므로 다음에 전체를 다시 본다.
+    func testOldFileWithWatermarkKeepsGroupsAndReanalyzesEverything() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let groupsJSON = String(decoding: try JSONEncoder().encode([group(["a", "b"], recommended: "b")]),
+                                as: UTF8.self)
+        try Data("{\"groups\":\(groupsJSON),\"watermark\":100}".utf8).write(to: url)
+        let state = GroupStore(url: url).load()
+        XCTAssertEqual(state.groups.map(\.id), ["a"])
+        XCTAssertTrue(state.analyzedIDs.isEmpty)
+        XCTAssertTrue(state.hasAnalyzed)
     }
 
     func testPruneRemovesMissingPhotosAndSmallGroups() {

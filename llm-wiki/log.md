@@ -2,6 +2,7 @@
 
 최신이 위. 형식: `날짜 | 무엇을 | 관련 페이지`.
 
+- 2026-11-16 | 리뷰 지적 1·2·4·5·8 수정(분석 기록 방식, 장소 이름 거리 기준, 공유 내용 고정, 날짜별 경로 선). 로직 테스트 94개 | [known-issues](known-issues.md), [cleanup](cleanup.md), [timeline](timeline.md)
 - 2026-11-16 | `dev-notes/` 추가: 사용자용 개발 지식 노트 12개(웹 개발자 기준 설명) | —
 - 2026-11-16 | 앱에 있던 계산을 Core로 옮기고 테스트 추가(40 → 74개) | [testing](testing.md), [architecture](architecture.md)
 - 2026-11-16 | 앱 기본 언어를 한국어로(`developmentLanguage: ko`), 화면 테스트를 한국어 지역으로 실행, 캡처 전체 갱신 | [ui](ui.md), [testing](testing.md)

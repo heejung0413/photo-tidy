@@ -125,9 +125,10 @@ struct TimelineView: View {
             ProgressView()
         } else {
             Button {
+                guard let request = TimelineShare.request(model: model) else { return }
                 isPreparingShare = true
                 Task {
-                    if let url = await TimelineShare.makeFile(model: model, library: app.library) {
+                    if let url = await TimelineShare.makeFile(request, library: app.library) {
                         shared = SharedFile(url: url)
                     }
                     isPreparingShare = false
@@ -298,14 +299,26 @@ struct TimelineView: View {
         .card(padding: 12)
     }
 
+    /// 경로 선. 앨범에서는 날짜별로 끊어, 다른 날의 장소끼리 이어지지 않게 한다.
+    private var routes: [[CLLocationCoordinate2D]] {
+        let days = model.sections.isEmpty
+            ? [TimelineDay(day: model.day ?? Date(), stops: model.stops)]
+            : model.sections
+        return days.map { day in
+            day.route.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+        }.filter { $0.count > 1 }
+    }
+
     private var map: some View {
         Map(position: $camera) {
             ForEach(pins) { pin in
                 Marker(pin.title, monogram: Text("\(pin.number)"), coordinate: pin.coordinate)
                     .tint(Theme.accent)
             }
-            MapPolyline(coordinates: pins.map(\.coordinate))
-                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            ForEach(Array(routes.enumerated()), id: \.offset) { _, route in
+                MapPolyline(coordinates: route)
+                    .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            }
         }
         .frame(height: 260)
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))

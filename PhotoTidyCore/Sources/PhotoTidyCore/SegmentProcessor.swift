@@ -4,15 +4,16 @@ import Foundation
 public enum SegmentProcessor {
     public struct Output: Sendable {
         public var groups: [StoredGroup]
-        /// 이미지를 받지 못해 건너뛴 사진 수.
-        public var unreadable: Int
+        /// 이미지를 받지 못해 건너뛴 사진.
+        public var unreadableIDs: [String]
+        public var unreadable: Int { unreadableIDs.count }
     }
 
     /// 시간 구간 하나를 분석해 묶음을 만든다. 사진이 1장뿐이면 이미지를 읽지 않는다.
     public static func process(_ segment: [PhotoItem],
                                threshold: Float = Tuning.distanceThreshold,
                                loadImage: (String) -> CGImage?) -> Output {
-        guard segment.count >= 2 else { return Output(groups: [], unreadable: 0) }
+        guard segment.count >= 2 else { return Output(groups: [], unreadableIDs: []) }
 
         var analyses: [String: ImageAnalysis] = [:]
         for photo in segment {
@@ -35,6 +36,7 @@ public enum SegmentProcessor {
             guard let recommended = BestShotPicker.pick(photos) else { return nil }
             return StoredGroup(photos: photos, recommendedID: recommended, isSkipped: false)
         }
-        return Output(groups: groups, unreadable: segment.count - readable.count)
+        return Output(groups: groups,
+                      unreadableIDs: segment.filter { analyses[$0.id] == nil }.map(\.id))
     }
 }

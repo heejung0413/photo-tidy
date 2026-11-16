@@ -29,7 +29,7 @@ final class AppModel {
         refreshAccess()
     }
 
-    var hasAnalyzed: Bool { state.watermark != nil }
+    var hasAnalyzed: Bool { state.hasAnalyzed }
 
     /// 숨기지 않은 묶음, 최신순.
     var visibleGroups: [StoredGroup] { state.visibleGroups }
@@ -66,12 +66,15 @@ final class AppModel {
         total = 0
         unreadable = 0
         let library = self.library
-        let resumeDate = state.resumeDate
+        let analyzed = state.analyzedIDs
 
         task = Task {
-            let segments = await Task.detached(priority: .userInitiated) {
-                SimilarityGrouper.segments(library.fetchPhotos(after: resumeDate))
+            let (existing, segments) = await Task.detached(priority: .userInitiated) {
+                let photos = library.fetchPhotos()
+                return (Set(photos.map(\.id)), AnalysisPlanner.pendingSegments(photos, analyzed: analyzed))
             }.value
+            state.forgetAnalyzed(notIn: existing)
+            state.hasAnalyzed = true
             total = segments.reduce(0) { $0 + $1.count }
             var sinceSave = 0
 
@@ -83,9 +86,11 @@ final class AppModel {
                     }.value
                     state.merge(output.groups)
                     unreadable += output.unreadable
-                }
-                if let last = segment.last {
-                    state.watermark = max(state.watermark ?? .distantPast, last.takenAt)
+                    // 읽지 못한 사진은 분석 완료로 치지 않아 다음에 다시 시도한다.
+                    let failed = Set(output.unreadableIDs)
+                    state.markAnalyzed(segment.map(\.id).filter { !failed.contains($0) })
+                } else {
+                    state.markAnalyzed(segment.map(\.id))
                 }
                 processed += segment.count
                 sinceSave += segment.count
