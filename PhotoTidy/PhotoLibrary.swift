@@ -61,15 +61,18 @@ final class PhotoLibrary: Sendable {
     }
 
     /// 화면 표시용 이미지. 저화질이 먼저 오고 고화질이 뒤따를 수 있다.
-    func displayImages(id: String, targetSize: CGSize) -> AsyncStream<UIImage> {
+    func displayImages(id: String, targetSize: CGSize, allowNetwork: Bool = false) -> AsyncStream<UIImage> {
         AsyncStream { continuation in
-            guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else {
+            // 공유 앨범 사진도 찾을 수 있게 출처를 모두 포함한다.
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
+            guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: fetchOptions).firstObject else {
                 continuation.finish()
                 return
             }
             let options = PHImageRequestOptions()
             options.deliveryMode = .opportunistic
-            options.isNetworkAccessAllowed = false
+            options.isNetworkAccessAllowed = allowNetwork
             let requestID = PHImageManager.default().requestImage(
                 for: asset, targetSize: targetSize, contentMode: .aspectFit, options: options
             ) { image, info in

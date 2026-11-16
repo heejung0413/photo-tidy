@@ -6,6 +6,8 @@ struct AssetImage: View {
     let id: String
     let targetSize: CGSize
     var contentMode: ContentMode = .fill
+    /// 기기에 없는 사진(공유 앨범 등)을 내려받아 보여 줄지.
+    var allowNetwork = false
 
     @State private var image: UIImage?
 
@@ -19,7 +21,7 @@ struct AssetImage: View {
             }
         }
         .task(id: id) {
-            for await loaded in model.library.displayImages(id: id, targetSize: targetSize) {
+            for await loaded in model.library.displayImages(id: id, targetSize: targetSize, allowNetwork: allowNetwork) {
                 image = loaded
             }
         }

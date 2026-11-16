@@ -38,6 +38,8 @@ struct TimelineView: View {
                 if !hasAccess {
                     ContentUnavailableView("사진 접근이 필요해요", systemImage: "photo.on.rectangle",
                                            description: Text("정리 탭에서 사진 접근을 허용해 주세요."))
+                } else if case .album(let album) = model.source {
+                    albumContent(album)
                 } else if let day = model.day {
                     dayContent(day)
                 } else {
@@ -46,6 +48,13 @@ struct TimelineView: View {
             }
             .navigationTitle("타임라인")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if hasAccess {
+                    ToolbarItem(placement: .principal) {
+                        sourceMenu
+                    }
+                }
+            }
         }
         .task(id: hasAccess) {
             if hasAccess {
@@ -55,11 +64,15 @@ struct TimelineView: View {
         .onChange(of: model.day) {
             camera = .automatic
         }
+        .onChange(of: model.source) {
+            camera = .automatic
+        }
         .sheet(isPresented: $isPickingDate) {
             datePicker
         }
         .sheet(item: $viewing) { photo in
-            AssetImage(id: photo.id, targetSize: CGSize(width: 1600, height: 1600), contentMode: .fit)
+            AssetImage(id: photo.id, targetSize: CGSize(width: 1600, height: 1600), contentMode: .fit,
+                       allowNetwork: isAlbum)
                 .ignoresSafeArea()
         }
     }
@@ -81,6 +94,129 @@ struct TimelineView: View {
             }
             .padding()
         }
+    }
+
+    private var isAlbum: Bool {
+        model.source != .daily
+    }
+
+    private var sourceMenu: some View {
+        Menu {
+            Button {
+                model.showDaily()
+            } label: {
+                menuLabel("전체 사진 (하루씩)", selected: !isAlbum)
+            }
+            albumSection("공유 앨범", model.albums.filter(\.isShared))
+            albumSection("내 앨범", model.albums.filter { !$0.isShared })
+        } label: {
+            HStack(spacing: 4) {
+                Text(sourceTitle)
+                    .font(.headline)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption.bold())
+            }
+        }
+        .accessibilityLabel("범위 선택")
+    }
+
+    private var sourceTitle: String {
+        if case .album(let album) = model.source {
+            return album.title
+        }
+        return "전체 사진"
+    }
+
+    @ViewBuilder
+    private func albumSection(_ title: String, _ albums: [PhotoAlbum]) -> some View {
+        if !albums.isEmpty {
+            Section(title) {
+                ForEach(albums) { album in
+                    Button {
+                        model.showAlbum(album)
+                    } label: {
+                        menuLabel("\(album.title) (\(album.count)장)", selected: model.source == .album(album))
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func menuLabel(_ title: String, selected: Bool) -> some View {
+        if selected {
+            Label(title, systemImage: "checkmark")
+        } else {
+            Text(title)
+        }
+    }
+
+    private func albumContent(_ album: PhotoAlbum) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(album.title)
+                        .font(.title3.bold())
+                    Text(albumSummary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                if !pins.isEmpty {
+                    map
+                } else if !model.stops.isEmpty {
+                    Text("이 앨범 사진에는 위치 정보가 없어 지도를 표시하지 못해요.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                if model.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else if model.stops.isEmpty {
+                    Text("이 앨범에는 사진이 없어요.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(numberedSections, id: \.section.id) { item in
+                    HStack {
+                        Text(item.section.day.formatted(dividerFormat))
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.secondary)
+                        VStack { Divider() }
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    ForEach(Array(item.section.stops.enumerated()), id: \.element.id) { index, stop in
+                        stopRow(stop, number: item.offset + index + 1)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+
+    /// 날짜별 묶음과, 그 앞까지의 머문 곳 수(번호를 앨범 전체에서 잇기 위해).
+    private var numberedSections: [(section: TimelineDay, offset: Int)] {
+        var offset = 0
+        return model.sections.map { section in
+            defer { offset += section.stops.count }
+            return (section, offset)
+        }
+    }
+
+    /// 앨범이 여러 해에 걸치면 날짜 구분 줄에 연도도 적는다.
+    private var dividerFormat: Date.FormatStyle {
+        let years = Set(model.sections.map { Calendar.current.component(.year, from: $0.day) })
+        return years.count > 1 ? .dateTime.year().month().day().weekday() : .dateTime.month().day().weekday()
+    }
+
+    private var albumSummary: String {
+        let count = model.stops.reduce(0) { $0 + $1.photos.count }
+        guard let first = model.sections.first?.day, let last = model.sections.last?.day else {
+            return "\(count)장"
+        }
+        let format = Date.FormatStyle.dateTime.year().month().day()
+        let period = first == last ? first.formatted(format) : "\(first.formatted(format)) – \(last.formatted(format))"
+        return "\(period) · \(count)장"
     }
 
     private func header(_ day: Date) -> some View {
@@ -155,11 +291,13 @@ struct TimelineView: View {
                         Button {
                             viewing = photo
                         } label: {
-                            AssetImage(id: photo.id, targetSize: CGSize(width: 200, height: 200))
+                            AssetImage(id: photo.id, targetSize: CGSize(width: 200, height: 200),
+                                       allowNetwork: isAlbum)
                                 .frame(width: 72, height: 72)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("사진 크게 보기")
                     }
                 }
             }

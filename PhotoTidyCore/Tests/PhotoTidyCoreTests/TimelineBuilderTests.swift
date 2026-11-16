@@ -62,4 +62,39 @@ final class TimelineBuilderTests: XCTestCase {
         let stops = TimelineBuilder.stops([tp("b", at: 60, 37.0), tp("a", at: 0, 37.0)], radius: 200)
         XCTAssertEqual(ids(stops), [["a", "b"]])
     }
+
+    // MARK: 여러 날
+
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    func testDaysOfEmptyInputIsEmpty() {
+        XCTAssertTrue(TimelineBuilder.days([], calendar: utc).isEmpty)
+    }
+
+    func testDaysSplitsSamePlaceByDate() {
+        let days = TimelineBuilder.days([tp("a", at: 0, 37.0), tp("b", at: 86_399, 37.0), tp("c", at: 86_400, 37.0)],
+                                        calendar: utc, radius: 200)
+        XCTAssertEqual(days.map { ids($0.stops) }, [[["a", "b"]], [["c"]]])
+        XCTAssertEqual(days.map(\.day), [Date(timeIntervalSinceReferenceDate: 0),
+                                         Date(timeIntervalSinceReferenceDate: 86_400)])
+    }
+
+    func testDaysAreSortedAndKeepStopsWithinEachDay() {
+        let days = TimelineBuilder.days([tp("d", at: 90_000, 37.0), tp("b", at: 60, 37.01), tp("a", at: 0, 37.0)],
+                                        calendar: utc, radius: 200)
+        XCTAssertEqual(days.map { ids($0.stops) }, [[["a"], ["b"]], [["d"]]])
+    }
+
+    func testDaysFollowCalendarTimeZone() {
+        var seoul = Calendar(identifier: .gregorian)
+        seoul.timeZone = TimeZone(secondsFromGMT: 9 * 3600)!
+        // 기준 시각 0은 서울 09:00. 15시간 뒤가 서울의 다음 날 0시다.
+        let photos = [tp("a", at: 0), tp("b", at: 53_999), tp("c", at: 54_000)]
+        XCTAssertEqual(TimelineBuilder.days(photos, calendar: seoul).map { ids($0.stops) }, [[["a", "b"]], [["c"]]])
+        XCTAssertEqual(TimelineBuilder.days(photos, calendar: utc).count, 1)
+    }
 }

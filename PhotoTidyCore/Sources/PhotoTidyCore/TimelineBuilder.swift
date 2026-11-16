@@ -33,6 +33,15 @@ public struct TimelineStop: Identifiable, Hashable, Sendable {
     public var end: Date { photos[photos.count - 1].takenAt }
 }
 
+/// 하루치 머문 곳. 여러 날을 이어 볼 때 쓴다.
+public struct TimelineDay: Identifiable, Hashable, Sendable {
+    /// 그날의 0시.
+    public let day: Date
+    public let stops: [TimelineStop]
+
+    public var id: Date { day }
+}
+
 public enum TimelineBuilder {
     /// 두 좌표 사이 거리(미터, 하버사인 공식).
     public static func distance(_ a: Coordinate, _ b: Coordinate) -> Double {
@@ -75,5 +84,15 @@ public enum TimelineBuilder {
         }
         flush()
         return result
+    }
+
+    /// 여러 날 사진을 날짜별로 나눠 각각 머문 곳으로 묶는다. 날짜 오름차순.
+    /// 날이 바뀌면 같은 장소여도 새 머문 곳이 된다.
+    public static func days(_ photos: [TimelinePhoto], calendar: Calendar = .current,
+                            radius: Double = Tuning.stopRadius) -> [TimelineDay] {
+        let byDay = Dictionary(grouping: photos) { calendar.startOfDay(for: $0.takenAt) }
+        return byDay.keys.sorted().map { day in
+            TimelineDay(day: day, stops: stops(byDay[day] ?? [], radius: radius))
+        }
     }
 }

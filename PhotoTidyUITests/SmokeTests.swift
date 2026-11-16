@@ -78,4 +78,74 @@ final class SmokeTests: XCTestCase {
         sleep(5) // 장소 이름과 지도 불러오기
         shot("7-timeline")
     }
+
+    /// 타임라인 사용 흐름을 단계별로 캡처한다. 샘플 사진(2026-11-14)이 사진첩에 있어야 한다.
+    func testTimelineWalkthrough() {
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let previous = app.buttons["이전 날"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 20))
+        sleep(4)
+        shot("t1-open-tab")
+
+        let sampleStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
+        for _ in 0..<10 where !sampleStop.exists {
+            if previous.isEnabled {
+                previous.tap()
+            }
+            sleep(1)
+        }
+        XCTAssertTrue(sampleStop.waitForExistence(timeout: 10))
+        sleep(5)
+        shot("t2-previous-day")
+
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "2026")).firstMatch.tap()
+        let confirm = app.buttons["보기"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        sleep(1)
+        shot("t3-pick-date")
+        confirm.tap()
+        XCTAssertTrue(sampleStop.waitForExistence(timeout: 10))
+
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "3:20")).firstMatch.tap()
+        sleep(4)
+        shot("t4-focus-stop")
+
+        let thumbnail = app.buttons.matching(identifier: "사진 크게 보기").firstMatch
+        XCTAssertTrue(thumbnail.waitForExistence(timeout: 10))
+        thumbnail.tap()
+        sleep(2)
+        shot("t5-view-photo")
+        app.swipeDown(velocity: .fast)
+    }
+
+    /// 앨범 전체 타임라인. 앱이 "-sampleAlbum" 인자로 사진첩 전체를 담은 "샘플 앨범"을 만든다.
+    func testAlbumTimeline() {
+        app.launchArguments = ["-sampleAlbum"]
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let menu = app.buttons["범위 선택"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 20))
+        sleep(3)
+        menu.tap()
+        let album = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "샘플 앨범")).firstMatch
+        XCTAssertTrue(album.waitForExistence(timeout: 10))
+        sleep(1)
+        shot("a1-pick-album")
+        album.tap()
+
+        XCTAssertTrue(app.staticTexts["샘플 앨범"].waitForExistence(timeout: 10))
+        let sampleStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
+        XCTAssertTrue(sampleStop.waitForExistence(timeout: 20))
+        XCTAssertFalse(app.buttons["이전 날"].exists)
+        sleep(6)
+        shot("a2-album-timeline")
+        app.swipeUp()
+        sleep(2)
+        shot("a3-album-scrolled")
+    }
 }
