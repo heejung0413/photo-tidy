@@ -35,6 +35,25 @@ public struct ShareOutline: Sendable {
     /// 담지 못한 머문 곳까지 포함한 전체 사진 수.
     public let photoCount: Int
 
+    /// 이미지를 만드는 사이 도착한 이름을 반영한다. title이 nil을 주는 머문 곳은 처음 제목을 둔다.
+    /// 담긴 머문 곳과 순번은 바뀌지 않는다.
+    public func retitled(_ title: (TimelineStop) -> String?) -> ShareOutline {
+        let sections = sections.map { section in
+            Section(day: section.day, stops: section.stops.map { item in
+                Stop(stop: item.stop, number: item.number, title: title(item.stop) ?? item.title,
+                     thumbnailIDs: item.thumbnailIDs, moreCount: item.moreCount)
+            })
+        }
+        return ShareOutline(sections: sections, routes: routes, hiddenStops: hiddenStops, photoCount: photoCount)
+    }
+
+    private init(sections: [Section], routes: [[Pin]], hiddenStops: Int, photoCount: Int) {
+        self.sections = sections
+        self.routes = routes
+        self.hiddenStops = hiddenStops
+        self.photoCount = photoCount
+    }
+
     public init(days: [TimelineDay], maxStops: Int, thumbnailsPerStop: Int, title: (TimelineStop) -> String) {
         var sections: [Section] = []
         var routes: [[Pin]] = []

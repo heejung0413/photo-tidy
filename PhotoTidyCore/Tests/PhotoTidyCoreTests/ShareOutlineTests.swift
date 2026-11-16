@@ -72,4 +72,23 @@ final class ShareOutlineTests: XCTestCase {
         XCTAssertTrue(result.routes.isEmpty)
         XCTAssertEqual(result.photoCount, 0)
     }
+
+    // MARK: 늦게 도착한 이름
+
+    /// 이미지를 만드는 동안 도착한 장소 이름은 반영하고, 못 받은 곳은 처음 제목을 둔다.
+    func testRetitledReplacesOnlyStopsThatGotAName() {
+        let first = outline([day(0, [stop("a"), stop("b")]), day(1, [stop("c")])])
+        let updated = first.retitled { $0.id == "b" ? "성수동" : nil }
+        XCTAssertEqual(updated.sections.map { $0.stops.map(\.title) }, [["이름-a", "성수동"], ["이름-c"]])
+    }
+
+    func testRetitledKeepsEverythingElse() {
+        let first = outline([day(0, [stop("a", photos: 6), stop("b", nil)]), day(1, [stop("c")])], maxStops: 2)
+        let updated = first.retitled { _ in "새 이름" }
+        XCTAssertEqual(updated.sections.map { $0.stops.map(\.number) }, first.sections.map { $0.stops.map(\.number) })
+        XCTAssertEqual(updated.sections[0].stops[0].thumbnailIDs, first.sections[0].stops[0].thumbnailIDs)
+        XCTAssertEqual(updated.routes.map { $0.map(\.number) }, first.routes.map { $0.map(\.number) })
+        XCTAssertEqual(updated.hiddenStops, 1)
+        XCTAssertEqual(updated.photoCount, first.photoCount)
+    }
 }

@@ -86,9 +86,10 @@ final class AppModel {
                     }.value
                     state.merge(output.groups)
                     unreadable += output.unreadable
-                    // 읽지 못한 사진은 분석 완료로 치지 않아 다음에 다시 시도한다.
+                    // 읽지 못한 사진은 다음에 다시 시도하고, 여러 번 실패하면 포기한다.
                     let failed = Set(output.unreadableIDs)
                     state.markAnalyzed(segment.map(\.id).filter { !failed.contains($0) })
+                    state.markUnreadable(output.unreadableIDs)
                 } else {
                     state.markAnalyzed(segment.map(\.id))
                 }

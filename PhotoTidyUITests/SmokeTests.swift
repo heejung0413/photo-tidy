@@ -187,4 +187,36 @@ final class SmokeTests: XCTestCase {
         sleep(2)
         shot("r3-share-sheet")
     }
+
+    /// 날짜를 넘겨도 지도의 경로 선이 그날 것으로 바뀌는지 캡처로 확인한다.
+    /// 샘플 사진 이틀 치(2026-11-14, 11-15)가 사진첩에 있어야 한다.
+    func testRouteFollowsDayWhenSwitching() {
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let previous = app.buttons["이전 날"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 20))
+        let firstDayStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
+        for _ in 0..<10 where !firstDayStop.exists {
+            if previous.isEnabled {
+                previous.tap()
+            }
+            sleep(1)
+        }
+        XCTAssertTrue(firstDayStop.waitForExistence(timeout: 10))
+        sleep(5)
+        shot("d1-first-day")
+
+        app.buttons["다음 날"].tap()
+        let secondDayStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "10:30")).firstMatch
+        XCTAssertTrue(secondDayStop.waitForExistence(timeout: 10))
+        sleep(5)
+        shot("d2-second-day")
+
+        previous.tap()
+        XCTAssertTrue(firstDayStop.waitForExistence(timeout: 10))
+        sleep(5)
+        shot("d3-back-to-first-day")
+    }
 }

@@ -16,6 +16,11 @@ final class PlaceNamer {
         cache = (try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))) ?? [:]
     }
 
+    /// 이미 받아 둔 이름. 서버에 묻지 않는다.
+    func cachedName(for coordinate: Coordinate) -> String? {
+        cache[PlaceKey.string(for: coordinate)]
+    }
+
     /// 실패하면 nil.
     func name(for coordinate: Coordinate) async -> String? {
         let key = PlaceKey.string(for: coordinate)

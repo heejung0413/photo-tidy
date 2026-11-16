@@ -128,7 +128,8 @@ struct TimelineView: View {
                 guard let request = TimelineShare.request(model: model) else { return }
                 isPreparingShare = true
                 Task {
-                    if let url = await TimelineShare.makeFile(request, library: app.library) {
+                    if let url = await TimelineShare.makeFile(request, library: app.library,
+                                                              lateName: { model.knownName(for: $0) }) {
                         shared = SharedFile(url: url)
                     }
                     isPreparingShare = false
@@ -301,10 +302,7 @@ struct TimelineView: View {
 
     /// 경로 선. 앨범에서는 날짜별로 끊어, 다른 날의 장소끼리 이어지지 않게 한다.
     private var routes: [[CLLocationCoordinate2D]] {
-        let days = model.sections.isEmpty
-            ? [TimelineDay(day: model.day ?? Date(), stops: model.stops)]
-            : model.sections
-        return days.map { day in
+        model.displayDays.map { day in
             day.route.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
         }.filter { $0.count > 1 }
     }

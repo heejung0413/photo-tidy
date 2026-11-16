@@ -121,4 +121,46 @@ final class GroupStoreTests: XCTestCase {
         try store.save(StoreState())
         XCTAssertEqual(store.load(), StoreState())
     }
+
+    // MARK: 읽지 못한 사진 다시 시도
+
+    func testUnreadablePhotoIsRetriedUntilLimitThenGivenUp() {
+        var state = StoreState()
+        for _ in 0..<(Tuning.maxReadAttempts - 1) {
+            state.markUnreadable(["bad"])
+            XCTAssertFalse(state.analyzedIDs.contains("bad"))
+        }
+        state.markUnreadable(["bad"])
+        XCTAssertTrue(state.analyzedIDs.contains("bad"))
+    }
+
+    func testSuccessfulReadClearsFailureCount() {
+        var state = StoreState()
+        for _ in 0..<(Tuning.maxReadAttempts - 1) {
+            state.markUnreadable(["flaky"])
+        }
+        state.markAnalyzed(["flaky"])
+        XCTAssertTrue(state.failedReads.isEmpty)
+    }
+
+    func testFailureCountsSurviveSaveAndLoad() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        var state = StoreState()
+        state.markUnreadable(["bad"])
+        try GroupStore(url: url).save(state)
+        var loaded = GroupStore(url: url).load()
+        XCTAssertEqual(loaded, state)
+        for _ in 0..<(Tuning.maxReadAttempts - 1) {
+            loaded.markUnreadable(["bad"])
+        }
+        XCTAssertTrue(loaded.analyzedIDs.contains("bad"))
+    }
+
+    func testForgetAnalyzedAlsoDropsFailureCountsOfMissingPhotos() {
+        var state = StoreState()
+        state.markUnreadable(["gone", "kept"])
+        state.forgetAnalyzed(notIn: ["kept"])
+        XCTAssertEqual(Array(state.failedReads.keys), ["kept"])
+    }
 }

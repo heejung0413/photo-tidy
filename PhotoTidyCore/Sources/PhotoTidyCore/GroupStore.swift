@@ -6,6 +6,8 @@ public struct StoreState: Codable, Equatable, Sendable {
     public private(set) var analyzedIDs: Set<String>
     /// 분석을 한 번이라도 돌렸는지.
     public var hasAnalyzed: Bool
+    /// 읽지 못한 사진 → 실패한 횟수. Tuning.maxReadAttempts에 이르면 포기한다.
+    public private(set) var failedReads: [String: Int] = [:]
 
     public init(groups: [StoredGroup] = [], analyzedIDs: Set<String> = [], hasAnalyzed: Bool = false) {
         self.groups = groups
@@ -14,7 +16,7 @@ public struct StoreState: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case groups, analyzedIDs, hasAnalyzed
+        case groups, analyzedIDs, hasAnalyzed, failedReads
         /// 예전 형식: 마지막으로 분석한 사진의 촬영 시각.
         case watermark
     }
@@ -25,6 +27,7 @@ public struct StoreState: Codable, Equatable, Sendable {
         analyzedIDs = try container.decodeIfPresent(Set<String>.self, forKey: .analyzedIDs) ?? []
         hasAnalyzed = try container.decodeIfPresent(Bool.self, forKey: .hasAnalyzed)
             ?? container.contains(.watermark)
+        failedReads = try container.decodeIfPresent([String: Int].self, forKey: .failedReads) ?? [:]
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -32,15 +35,33 @@ public struct StoreState: Codable, Equatable, Sendable {
         try container.encode(groups, forKey: .groups)
         try container.encode(analyzedIDs, forKey: .analyzedIDs)
         try container.encode(hasAnalyzed, forKey: .hasAnalyzed)
+        try container.encode(failedReads, forKey: .failedReads)
     }
 
     public mutating func markAnalyzed<S: Sequence>(_ ids: S) where S.Element == String {
-        analyzedIDs.formUnion(ids)
+        for id in ids {
+            analyzedIDs.insert(id)
+            failedReads[id] = nil
+        }
+    }
+
+    /// 읽지 못한 사진을 기록한다. 다음 분석에서 다시 시도하되, 계속 실패하면 포기한다
+    /// (영영 못 읽는 사진 하나 때문에 그 구간을 매번 다시 분석하지 않도록).
+    public mutating func markUnreadable<S: Sequence>(_ ids: S) where S.Element == String {
+        for id in ids {
+            let attempts = (failedReads[id] ?? 0) + 1
+            if attempts >= Tuning.maxReadAttempts {
+                markAnalyzed([id])
+            } else {
+                failedReads[id] = attempts
+            }
+        }
     }
 
     /// 사진첩에서 사라진 사진의 분석 기록을 지운다.
     public mutating func forgetAnalyzed(notIn existing: Set<String>) {
         analyzedIDs.formIntersection(existing)
+        failedReads = failedReads.filter { existing.contains($0.key) }
     }
 
     /// 사진첩에서 사라진 사진을 빼고, 2장 미만이 된 묶음을 지운다.

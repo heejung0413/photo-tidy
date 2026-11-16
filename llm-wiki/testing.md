@@ -6,7 +6,7 @@
 swift test --package-path PhotoTidyCore
 ```
 
-94개(2026-11-16). 묶기, 추천, 저장, 이미지 분석, 타임라인 머문 곳·날짜별 나누기, 정리 요약 숫자, 장소 이름, 날짜 이동, 시각·기간 글자.
+109개(2026-11-16). 묶기, 추천, 저장, 이미지 분석, 타임라인 머문 곳·날짜별 나누기, 정리 요약 숫자, 장소 이름, 날짜 이동, 시각·기간 글자.
 
 새 테스트를 쓴 뒤에는 통과만 보지 말고, 대상 로직을 한 줄 망가뜨렸을 때 실패하는지 확인한다(2026-11-16에 12가지를 망가뜨려 전부 잡히는 것을 확인. 처음엔 `이전 날` 테스트가 못 잡아서 보강했다).
 
@@ -19,6 +19,7 @@ swift test --package-path PhotoTidyCore
 | `testTimelineWalkthrough` | 이전 날, 달력, 지도 이동, 크게 보기 |
 | `testAlbumTimeline` | `-sampleAlbum`으로 만든 앨범을 골라 앨범 화면 표시 |
 | `testRenameStopAndShare` | 장소 이름 고치기 → 공유 창 표시 |
+| `testRouteFollowsDayWhenSwitching` | 날짜를 넘겼다 돌아와도 지도 선이 그날 것인지(캡처로 확인) |
 
 ### 준비
 
@@ -26,7 +27,7 @@ swift test --package-path PhotoTidyCore
 SIM=08B467F7-DA62-4748-A245-33434F9B4D87          # iPhone 15 Pro, iOS 17.5. 이름이 아니라 ID로 지정
 xcrun simctl uninstall $SIM com.heejung.phototidy   # 권한·분석 결과 초기화
 xcrun simctl addmedia $SIM build/samples/a1.jpg build/samples/a2.jpg   # 같은 사진 2장(삭제 테스트용)
-swift scripts/make-timeline-samples.swift build/timeline-samples       # 2026-11-14, 3곳 4장 (처음 한 번 addmedia)
+swift scripts/make-timeline-samples.swift build/timeline-samples       # 2026-11-14(3곳 4장), 11-15(2곳 2장). 처음 한 번 addmedia
 xcodebuild test -project PhotoTidy.xcodeproj -scheme PhotoTidy \
   -destination "platform=iOS Simulator,id=$SIM" -derivedDataPath build > build.log 2>&1
 ```

@@ -77,7 +77,7 @@ xcrun simctl boot $SIM
 
 # 샘플 사진 넣기
 xcrun simctl addmedia $SIM a.jpg a-copy.jpg                          # 같은 사진 2장 (정리 테스트용)
-swift scripts/make-timeline-samples.swift build/timeline-samples     # 위치·시각이 든 사진 4장
+swift scripts/make-timeline-samples.swift build/timeline-samples     # 위치·시각이 든 사진 6장(이틀 치)
 xcrun simctl addmedia $SIM build/timeline-samples/*.jpg
 
 # 권한·분석 결과 초기화 후 실행

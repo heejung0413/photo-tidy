@@ -36,10 +36,8 @@ enum TimelineShare {
     /// 지금 보고 있는 타임라인으로 공유 내용을 만든다. 머문 곳이 없으면 nil.
     /// 기다리는 지점 없이 한 번에 끝나므로, 이후 날짜·범위를 바꿔도 내용이 섞이지 않는다.
     static func request(model: TimelineModel) -> Request? {
-        guard !model.stops.isEmpty else { return nil }
-        let days = model.sections.isEmpty
-            ? [TimelineDay(day: model.day ?? model.stops[0].start, stops: model.stops)]
-            : model.sections
+        let days = model.displayDays
+        guard !days.isEmpty else { return nil }
         let outline = ShareOutline(days: days, maxStops: maxStops, thumbnailsPerStop: thumbnailsPerStop) {
             model.title(for: $0)
         }
@@ -53,34 +51,43 @@ enum TimelineShare {
     }
 
     /// 이미지를 임시 폴더에 저장하고 그 위치를 돌려준다.
-    static func makeFile(_ request: Request, library: PhotoLibrary) async -> URL? {
+    /// lateName: 썸네일을 받는 사이 도착한 장소 이름을 묻는다(화면 상태와 무관한 값이어야 한다).
+    static func makeFile(_ request: Request, library: PhotoLibrary,
+                         lateName: (TimelineStop) -> String?) async -> URL? {
+        var thumbnailsByStop: [String: [UIImage]] = [:]
+        for item in request.outline.sections.flatMap(\.stops) {
+            var thumbnails: [UIImage] = []
+            for id in item.thumbnailIDs {
+                var last: UIImage?
+                for await image in library.displayImages(id: id, targetSize: CGSize(width: 240, height: 240),
+                                                         allowNetwork: request.isAlbum) {
+                    last = image
+                }
+                if let last {
+                    thumbnails.append(last)
+                }
+            }
+            thumbnailsByStop[item.id] = thumbnails
+        }
+
+        // 버튼을 누를 때 아직 못 받았던 이름("장소 2")을, 그사이 받았으면 채운다.
+        let outline = request.outline.retitled(lateName)
         var sections: [Section] = []
-        for (index, outlineSection) in request.outline.sections.enumerated() {
+        for (index, outlineSection) in outline.sections.enumerated() {
             var section = Section(
                 id: index,
                 header: request.isAlbum
                     ? outlineSection.day.formatted(.dateTime.year().month().day().weekday()) : nil,
                 stops: [])
             for item in outlineSection.stops {
-                var thumbnails: [UIImage] = []
-                for id in item.thumbnailIDs {
-                    var last: UIImage?
-                    for await image in library.displayImages(id: id, targetSize: CGSize(width: 240, height: 240),
-                                                             allowNetwork: request.isAlbum) {
-                        last = image
-                    }
-                    if let last {
-                        thumbnails.append(last)
-                    }
-                }
                 section.stops.append(Stop(
                     id: item.id, number: item.number, title: item.title,
                     detail: "\(TimelineText.timeRange(item.stop)) · \(item.stop.photos.count)장",
-                    thumbnails: thumbnails, moreCount: item.moreCount))
+                    thumbnails: thumbnailsByStop[item.id] ?? [], moreCount: item.moreCount))
             }
             sections.append(section)
         }
-        let routes = request.outline.routes.map { route in
+        let routes = outline.routes.map { route in
             route.map { (number: $0.number,
                          coordinate: CLLocationCoordinate2D(latitude: $0.coordinate.latitude,
                                                             longitude: $0.coordinate.longitude)) }
@@ -88,7 +95,7 @@ enum TimelineShare {
 
         let map = await mapImage(routes: routes, size: CGSize(width: width - 32, height: 230))
         let card = Card(title: request.title, subtitle: request.subtitle, map: map, sections: sections,
-                        hiddenStops: request.outline.hiddenStops)
+                        hiddenStops: outline.hiddenStops)
             .frame(width: width)
             .environment(\.colorScheme, .light)
         let renderer = ImageRenderer(content: card)

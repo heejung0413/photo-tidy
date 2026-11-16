@@ -2,6 +2,7 @@
 
 최신이 위. 형식: `날짜 | 무엇을 | 관련 페이지`.
 
+- 2026-11-16 | 두 번째 리뷰 반영: 장소 이름을 사진에 붙이기, 읽기 재시도 3회 제한, 공유 이미지에 늦게 온 이름 채우기, 깨진 이름 파일 보관. 지도 선 지적은 재현 안 돼 미수정. 로직 테스트 109개 | [known-issues](known-issues.md), [timeline](timeline.md)
 - 2026-11-16 | 리뷰 지적 1·2·4·5·8 수정(분석 기록 방식, 장소 이름 거리 기준, 공유 내용 고정, 날짜별 경로 선). 로직 테스트 94개 | [known-issues](known-issues.md), [cleanup](cleanup.md), [timeline](timeline.md)
 - 2026-11-16 | `dev-notes/` 추가: 사용자용 개발 지식 노트 12개(웹 개발자 기준 설명) | —
 - 2026-11-16 | 앱에 있던 계산을 Core로 옮기고 테스트 추가(40 → 74개) | [testing](testing.md), [architecture](architecture.md)

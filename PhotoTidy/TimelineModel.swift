@@ -31,16 +31,14 @@ final class TimelineModel {
     private let namer = PlaceNamer()
     private var loadTask: Task<Void, Never>?
 
-    private let customNamesURL: URL
+    private let customNamesStore: PlaceNameStore
 
     init(library: PhotoLibrary) {
         self.library = library
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        customNamesURL = directory.appendingPathComponent("custom-place-names.json")
-        if let saved = try? JSONDecoder().decode(CustomPlaceNames.self, from: Data(contentsOf: customNamesURL)) {
-            customNames = saved
-        }
+        customNamesStore = PlaceNameStore(url: directory.appendingPathComponent("custom-place-names.json"))
+        customNames = customNamesStore.load()
     }
 
     func customName(for stop: TimelineStop) -> String? {
@@ -50,7 +48,21 @@ final class TimelineModel {
     /// 장소 이름을 직접 정한다. 빈 글자면 직접 붙인 이름을 지우고 자동 이름으로 돌아간다.
     func rename(_ stop: TimelineStop, to text: String) {
         customNames.rename(stop, to: text)
-        try? JSONEncoder().encode(customNames).write(to: customNamesURL, options: .atomic)
+        try? customNamesStore.save(customNames)
+    }
+
+    /// 지금 화면과 무관하게 알 수 있는 이름(직접 붙인 이름, 또는 이미 받아 둔 자동 이름). 없으면 nil.
+    func knownName(for stop: TimelineStop) -> String? {
+        customName(for: stop) ?? stop.center.flatMap { namer.cachedName(for: $0) }
+    }
+
+    /// 화면에 보이는 머문 곳을 날짜별로. 하루 보기는 그날 하나.
+    var displayDays: [TimelineDay] {
+        if !sections.isEmpty {
+            return sections
+        }
+        guard let first = stops.first else { return [] }
+        return [TimelineDay(day: day ?? first.start, stops: stops)]
     }
 
     var previousDay: Date? {
