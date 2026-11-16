@@ -141,6 +141,7 @@ photo-tidy/
 | `TimelineBuilder.swift` | 거리 계산, 머문 곳 만들기, 날짜별로 나누기 |
 | `DayNavigator.swift` | 이전·다음·가장 가까운 날 고르기 |
 | `PlaceNames.swift` | 직접 붙인 장소 이름과 그 저장 |
+| `PlaceNameLookup.swift` | 자동 장소 이름 요청을 하나씩 보내고 기억하기 |
 | `TimelineText.swift` | 시각 범위·앨범 기간 글자 |
 | `ShareOutline.swift` | 공유 이미지에 담을 내용 정리 |
 

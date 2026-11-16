@@ -80,10 +80,26 @@ final class AppModel {
 
             for segment in segments {
                 if Task.isCancelled { break }
+                let processedBefore = processed
                 if segment.count >= 2 {
-                    let output = await Task.detached(priority: .userInitiated) {
-                        SegmentProcessor.process(segment) { library.analysisImage(id: $0) }
-                    }.value
+                    // 긴 구간도 사진마다 진행을 알리고, 취소하면 바로 멈춘다.
+                    let base = processedBefore
+                    let work = Task.detached(priority: .userInitiated) {
+                        SegmentProcessor.process(
+                            segment,
+                            isCancelled: { Task.isCancelled },
+                            onProgress: { count in
+                                Task { @MainActor in self.processed = max(self.processed, base + count) }
+                            },
+                            loadImage: { library.analysisImage(id: $0) })
+                    }
+                    let output = await withTaskCancellationHandler {
+                        await work.value
+                    } onCancel: {
+                        work.cancel()
+                    }
+                    // 도중에 멈춘 구간은 분석한 것으로 치지 않는다. 다음에 다시 본다.
+                    if output.wasCancelled { break }
                     state.merge(output.groups)
                     unreadable += output.unreadable
                     // 읽지 못한 사진은 다음에 다시 시도하고, 여러 번 실패하면 포기한다.
@@ -93,7 +109,7 @@ final class AppModel {
                 } else {
                     state.markAnalyzed(segment.map(\.id))
                 }
-                processed += segment.count
+                processed = max(processed, processedBefore + segment.count)
                 sinceSave += segment.count
                 if sinceSave >= 200 {
                     try? store.save(state)

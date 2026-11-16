@@ -20,7 +20,13 @@ final class TimelineModel {
     private(set) var days: [Date] = []
     private(set) var day: Date?
     /// 화면에 보이는 머문 곳 전체(앨범이면 모든 날을 이어 붙인 것). 번호는 이 순서를 따른다.
-    private(set) var stops: [TimelineStop] = []
+    private(set) var stops: [TimelineStop] = [] {
+        didSet {
+            order = Dictionary(stops.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
+        }
+    }
+    /// 머문 곳 id → 화면에서의 순서(0부터). 줄마다 목록을 처음부터 찾지 않기 위해 둔다.
+    private var order: [String: Int] = [:]
     /// 머문 곳 id → 장소 이름.
     private(set) var names: [String: String] = [:]
     private(set) var isLoading = false
@@ -138,15 +144,18 @@ final class TimelineModel {
         loadTask?.cancel()
         isLoading = true
         loadTask = Task {
-            let photos = await Task.detached(priority: .userInitiated, operation: fetch).value
+            // 사진이 많은 앨범에서 화면이 멈추지 않게, 묶는 계산도 화면 밖에서 한다.
+            let (newSections, newStops) = await Task.detached(priority: .userInitiated) {
+                let photos = fetch()
+                if byDay {
+                    let days = TimelineBuilder.days(photos)
+                    return (days, days.flatMap(\.stops))
+                }
+                return ([TimelineDay](), TimelineBuilder.stops(photos))
+            }.value
             if Task.isCancelled { return }
-            if byDay {
-                sections = TimelineBuilder.days(photos)
-                stops = sections.flatMap(\.stops)
-            } else {
-                sections = []
-                stops = TimelineBuilder.stops(photos)
-            }
+            sections = newSections
+            stops = newStops
             names = [:]
             isLoading = false
             for stop in stops {
@@ -167,7 +176,7 @@ final class TimelineModel {
         if let name = names[stop.id] {
             return name
         }
-        guard stop.center != nil, let index = stops.firstIndex(of: stop) else {
+        guard stop.center != nil, let index = order[stop.id] else {
             return "위치 정보 없음"
         }
         return "장소 \(index + 1)"

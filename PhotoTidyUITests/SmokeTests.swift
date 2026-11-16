@@ -145,12 +145,16 @@ final class SmokeTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["샘플 앨범"].waitForExistence(timeout: 10))
         let sampleStop = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "9:10")).firstMatch
-        XCTAssertTrue(sampleStop.waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["이전 날"].exists)
         sleep(6)
         shot("a2-album-timeline")
-        app.swipeUp()
-        sleep(2)
+        // 앨범은 화면에 보이는 줄만 그리므로, 아래쪽 줄은 스크롤해야 나타난다.
+        XCTAssertFalse(sampleStop.exists)
+        for _ in 0..<8 where !sampleStop.exists {
+            app.swipeUp()
+            sleep(1)
+        }
+        XCTAssertTrue(sampleStop.exists)
         shot("a3-album-scrolled")
     }
 

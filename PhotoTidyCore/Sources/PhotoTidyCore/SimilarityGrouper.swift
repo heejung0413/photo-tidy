@@ -15,8 +15,10 @@ public enum SimilarityGrouper {
     }
 
     /// 구간 안에서 거리가 threshold 이하인 사진을 연결하고, 연결된 덩어리 중 2장 이상인 것만 돌려준다.
+    /// isCancelled가 참이 되면 비교를 그만두고 빈 결과를 돌려준다.
     public static func groups(in segment: [PhotoItem],
                               threshold: Float = Tuning.distanceThreshold,
+                              isCancelled: () -> Bool = { false },
                               distance: (PhotoItem, PhotoItem) -> Float?) -> [[PhotoItem]] {
         var parent = Array(segment.indices)
         func find(_ start: Int) -> Int {
@@ -28,6 +30,7 @@ public enum SimilarityGrouper {
             return i
         }
         for i in segment.indices {
+            if isCancelled() { return [] }
             for j in segment.indices where j > i {
                 guard let d = distance(segment[i], segment[j]), d <= threshold else { continue }
                 let (a, b) = (find(i), find(j))

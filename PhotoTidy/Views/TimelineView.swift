@@ -200,7 +200,8 @@ struct TimelineView: View {
 
     private func albumContent(_ album: PhotoAlbum) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            // 앨범은 머문 곳이 수백 개일 수 있어, 화면에 보이는 줄만 그린다.
+            LazyVStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(album.title)
                         .font(.title3.bold())

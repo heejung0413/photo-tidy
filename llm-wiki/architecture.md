@@ -39,7 +39,7 @@ PhotoTidyUITests               시뮬레이터 화면 자동 조작 테스트
 | `PhotoLibrary+Albums.swift` | 앨범 목록(공유·일반), 앨범 안 사진, 디버그용 샘플 앨범 |
 | `AppModel.swift` | 정리 탭 상태: 권한, 분석 진행, 묶음, 삭제 |
 | `TimelineModel.swift` | 타임라인 상태: 범위, 날짜, 머문 곳, 장소 이름, 직접 붙인 이름 |
-| `PlaceNamer.swift` | 좌표 → 장소 이름(CLGeocoder), 캐시 |
+| `PlaceNamer.swift` | 좌표 → 장소 이름(CLGeocoder), 파일 저장. 줄 세우기와 캐시는 Core의 `PlaceNameLookup` |
 | `TimelineShare.swift` | 타임라인을 JPEG 한 장으로, 공유 창 |
 | `Views/` | `HomeView`, `GroupListView`, `GroupDetailView`, `TimelineView`, `AssetImage`, `Theme` |
 

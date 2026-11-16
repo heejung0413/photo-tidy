@@ -69,6 +69,50 @@ final class ImageAnalyzerTests: XCTestCase {
         XCTAssertFalse(output.groups[0].isSkipped)
     }
 
+    func testSegmentProcessorReportsEachPhotoAsItIsRead() {
+        let images: [String: CGImage] = ["a": scene(), "b": scene()]
+        let segment = [photo("a", at: 0), photo("b", at: 1), photo("c", at: 2)]
+        var progress: [Int] = []
+        _ = SegmentProcessor.process(segment, onProgress: { progress.append($0) }) { images[$0] }
+        // 읽지 못한 사진(c)도 한 장으로 센다.
+        XCTAssertEqual(progress, [1, 2, 3])
+    }
+
+    func testSegmentProcessorStopsReadingWhenCancelled() {
+        let image = scene()
+        let segment = (0..<10).map { photo("p\($0)", at: TimeInterval($0)) }
+        var loaded = 0
+        let output = SegmentProcessor.process(segment, isCancelled: { loaded >= 3 }) { _ in
+            loaded += 1
+            return image
+        }
+        XCTAssertEqual(loaded, 3)
+        XCTAssertTrue(output.wasCancelled)
+        // 중간에 멈춘 구간은 결과를 내지 않는다. 다음 분석에서 처음부터 다시 본다.
+        XCTAssertTrue(output.groups.isEmpty)
+        XCTAssertTrue(output.unreadableIDs.isEmpty)
+    }
+
+    func testSegmentProcessorStopsWhileComparingAfterAllPhotosAreRead() {
+        let image = scene()
+        let segment = (0..<4).map { photo("p\($0)", at: TimeInterval($0)) }
+        var loaded = 0
+        let output = SegmentProcessor.process(segment, isCancelled: { loaded >= 4 }) { _ in
+            loaded += 1
+            return image
+        }
+        XCTAssertEqual(loaded, 4)
+        XCTAssertTrue(output.wasCancelled)
+        XCTAssertTrue(output.groups.isEmpty)
+    }
+
+    func testSegmentProcessorIsNotCancelledByDefault() {
+        let images: [String: CGImage] = ["a": scene(), "b": scene()]
+        let output = SegmentProcessor.process([photo("a", at: 0), photo("b", at: 1)], threshold: 0.01) { images[$0] }
+        XCTAssertFalse(output.wasCancelled)
+        XCTAssertEqual(output.groups.count, 1)
+    }
+
     func testSegmentProcessorSkipsSinglePhotoSegment() {
         var loaded = 0
         let output = SegmentProcessor.process([photo("a")]) { _ in
