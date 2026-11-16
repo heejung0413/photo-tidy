@@ -77,7 +77,7 @@ xcrun simctl boot $SIM
 
 # 샘플 사진 넣기
 xcrun simctl addmedia $SIM a.jpg a-copy.jpg                          # 같은 사진 2장 (정리 테스트용)
-swift scripts/make-timeline-samples.swift build/timeline-samples     # 위치·시각이 든 사진 6장(이틀 치)
+swift scripts/make-timeline-samples.swift build/timeline-samples     # 위치·시각이 든 사진 6장(이틀 치, 처음 한 번만)
 xcrun simctl addmedia $SIM build/timeline-samples/*.jpg
 
 # 권한·분석 결과 초기화 후 실행
@@ -86,7 +86,7 @@ xcodebuild test -project PhotoTidy.xcodeproj -scheme PhotoTidy \
   -destination "platform=iOS Simulator,id=$SIM" -derivedDataPath build
 ```
 
-정리 테스트는 사진을 지우므로, 다시 돌릴 때마다 같은 사진 2장을 다시 넣어야 합니다.
+정리 테스트는 사진을 지우므로, 다시 돌릴 때마다 같은 사진 2장을 다시 넣어야 합니다. 이 2장은 "앨범이 실행 중에 바뀌는" 테스트에서 샘플 앨범에 새로 더해지는 사진으로도 쓰입니다.
 시뮬레이터에는 공유 앨범이 없어서, 앨범 테스트는 사진첩 전체를 담은 "샘플 앨범"을 만들어 확인합니다.
 
 ## 조정할 수 있는 값
@@ -155,6 +155,7 @@ photo-tidy/
 | `PhotoLibrary.swift` | 사진첩 권한, 사진 목록, 이미지 받기, 삭제 |
 | `PhotoLibrary+Timeline.swift` | 특정 날의 사진, 사진이 있는 날짜 목록 |
 | `PhotoLibrary+Albums.swift` | 앨범 목록(공유·일반)과 앨범 안 사진 |
+| `LibraryChangeWatcher.swift` | 사진첩이 바뀌면 알려 주기 |
 | `PlaceNamer.swift` | 좌표를 장소 이름으로 바꾸기 (애플 서버에 좌표 전송) |
 | `TimelineShare.swift` | 타임라인을 이미지 한 장으로 만들어 공유 |
 | `Views/HomeView.swift` | 홈 (권한 안내, 분석, 결과 요약) |

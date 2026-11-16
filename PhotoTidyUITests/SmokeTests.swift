@@ -126,6 +126,36 @@ final class SmokeTests: XCTestCase {
         app.swipeDown(velocity: .fast)
     }
 
+    /// 앨범을 보고 있는 동안 그 앨범에 사진이 더해지면 화면이 따라 바뀐다.
+    /// 사진첩에 샘플 앨범에 없는 사진이 1장 이상 있어야 한다(정리 테스트용 사진 2장을 새로 넣으면 된다).
+    func testAlbumFollowsLibraryChanges() {
+        app.launchArguments += ["-sampleAlbum", "-growSampleAlbumAfter", "15"]
+        app.launch()
+        grantAccessIfNeeded()
+        app.tabBars.buttons["타임라인"].tap()
+
+        let menu = app.buttons["범위 선택"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 20))
+        sleep(3)
+        menu.tap()
+        let album = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "샘플 앨범")).firstMatch
+        XCTAssertTrue(album.waitForExistence(timeout: 10))
+        album.tap()
+
+        let summary = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "장")).firstMatch
+        XCTAssertTrue(summary.waitForExistence(timeout: 10))
+        let before = summary.label
+        shot("g1-before")
+
+        // 15초 뒤 앱이 앨범에 사진을 더한다. 다른 화면에 다녀오지 않아도 장수가 바뀌어야 한다.
+        let changed = NSPredicate { _, _ in summary.exists && summary.label != before }
+        wait(for: [expectation(for: changed, evaluatedWith: nil)], timeout: 40)
+        shot("g2-after")
+        // 같은 앨범을 계속 보고 있어야 한다(하루 보기로 튕기지 않는다).
+        XCTAssertTrue(app.staticTexts["샘플 앨범"].exists)
+        XCTAssertFalse(app.buttons["이전 날"].exists)
+    }
+
     /// 앨범 전체 타임라인. 앱이 "-sampleAlbum" 인자로 사진첩 전체를 담은 "샘플 앨범"을 만든다.
     func testAlbumTimeline() {
         app.launchArguments += ["-sampleAlbum"]

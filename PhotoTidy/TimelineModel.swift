@@ -36,6 +36,8 @@ final class TimelineModel {
     private let library: PhotoLibrary
     private let namer = PlaceNamer()
     private var loadTask: Task<Void, Never>?
+    private var watcher: LibraryChangeWatcher?
+    private var refreshTask: Task<Void, Never>?
 
     private let customNamesStore: PlaceNameStore
 
@@ -81,20 +83,77 @@ final class TimelineModel {
         return DayNavigator.next(after: day, in: days)
     }
 
+    /// 보고 있는 앨범의 id. 하루씩 볼 때는 nil.
+    var albumID: String? {
+        if case .album(let album) = source {
+            return album.id
+        }
+        return nil
+    }
+
     /// 날짜·앨범 목록을 읽고, 보고 있던 날이 없으면 가장 최근 날을 연다.
+    /// 그 뒤로 사진첩이 바뀌면 알아서 다시 읽는다.
     func loadDays() async {
         let library = self.library
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-sampleAlbum") {
             await library.makeSampleAlbumIfNeeded()
         }
+        growSampleAlbumLaterIfAsked()
         #endif
+        if watcher == nil {
+            watcher = LibraryChangeWatcher { [weak self] in
+                Task { @MainActor in self?.libraryDidChange() }
+            }
+        }
+        await reload()
+    }
+
+    /// 사진첩 변경 알림은 짧은 시간에 여러 번 올 수 있어, 잠잠해진 뒤 한 번만 다시 읽는다.
+    private func libraryDidChange() {
+        refreshTask?.cancel()
+        refreshTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if Task.isCancelled { return }
+            await reload()
+        }
+    }
+
+    /// 날짜·앨범 목록과 지금 보고 있는 범위를 다시 읽는다.
+    private func reload() async {
+        let library = self.library
         (days, albums) = await Task.detached(priority: .userInitiated) {
             (library.photoDays(), library.albums())
         }.value
-        if case .album = source { return }
+        // 보던 앨범은 id로 다시 찾는다. 사진 수나 이름이 바뀌어도 같은 앨범이다.
+        if let albumID {
+            if let album = albums.first(where: { $0.id == albumID }) {
+                showAlbum(album)
+                return
+            }
+            // 보던 앨범이 지워졌거나 비었다.
+            stops = []
+            sections = []
+        }
         showDaily()
     }
+
+    #if DEBUG
+    private var didScheduleGrow = false
+
+    /// 화면 테스트용: "-growSampleAlbumAfter 초" 인자가 있으면 그만큼 뒤에 샘플 앨범에 사진을 더한다.
+    private func growSampleAlbumLaterIfAsked() {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard !didScheduleGrow, let index = arguments.firstIndex(of: "-growSampleAlbumAfter"),
+              arguments.indices.contains(index + 1), let seconds = Double(arguments[index + 1]) else { return }
+        didScheduleGrow = true
+        let library = self.library
+        Task.detached {
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            await library.growSampleAlbum()
+        }
+    }
+    #endif
 
     /// 하루씩 보기로 돌아간다.
     func showDaily() {
@@ -114,7 +173,7 @@ final class TimelineModel {
 
     /// 앨범의 사진 전체를 날짜별로 이어 붙여 연다.
     func showAlbum(_ album: PhotoAlbum) {
-        if source != .album(album) {
+        if albumID != album.id {
             stops = []
             sections = []
         }
@@ -156,7 +215,9 @@ final class TimelineModel {
             if Task.isCancelled { return }
             sections = newSections
             stops = newStops
-            names = [:]
+            // 다시 읽어도 그대로인 머문 곳은 이름을 지우지 않는다(이름이 잠깐 "장소 N"으로 바뀌지 않게).
+            let ids = Set(newStops.map(\.id))
+            names = names.filter { ids.contains($0.key) }
             isLoading = false
             for stop in stops {
                 guard let center = stop.center else { continue }

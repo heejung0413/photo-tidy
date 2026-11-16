@@ -19,7 +19,9 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 - 색·카드 모양·순번 배지는 `PhotoTidy/Views/Theme.swift` 한 곳(`Theme.accent`, `.card()`, `NumberBadge`)에서 쓴다. 화면에 `.blue` 같은 색을 직접 쓰지 말 것. 공유 이미지(`TimelineShare`)도 같은 색을 쓴다.
 - 화면을 고칠 때 스모크 테스트가 찾는 글자·이름을 유지할 것: `분석 시작`/`새 사진 분석`, `비슷한 사진 묶음`으로 시작하는 글자, `묶음 보기`, 목록의 List 셀, `나머지`로 시작하는 버튼, `정리할 묶음이 없어요`, `이전 날`/`다음 날`, `범위 선택`, `사진 크게 보기`, `장소 이름 바꾸기`, `타임라인 공유`.
 - 화면의 SwiftUI `Map`은 `ImageRenderer`로 그림이 되지 않는다. 이미지로 내보낼 때는 `MKMapSnapshotter`로 지도 그림을 받아 핀·선을 직접 그린다(`TimelineShare.mapImage`). 만들어진 공유 이미지는 `xcrun simctl get_app_container <ID> com.heejung.phototidy data` 아래 `tmp/타임라인.jpg`.
-- 2026-11-16 코드 리뷰 지적 중 분석 누락·장소 이름 키·공유 내용 섞임·날짜를 넘는 지도 선, 이어서 긴 구간 취소·`CLGeocoder` 동시 요청·앨범 화면 지연 그리기·묶기 계산 백그라운드화까지 같은 날 수정함. 남은 것(앨범 목록 새로고침과 `PhotoAlbum` 비교는 한 쌍, 큰 앨범의 이름 요청 제한, 쌍 비교 n²)은 `llm-wiki/known-issues.md`.
+- 2026-11-16 코드 리뷰 지적 중 분석 누락·장소 이름 키·공유 내용 섞임·날짜를 넘는 지도 선, 이어서 긴 구간 취소·`CLGeocoder` 동시 요청·앨범 화면 지연 그리기·묶기 계산 백그라운드화까지 같은 날 수정함. 앨범 목록 새로고침과 앨범 id 비교도 같은 날 수정. 남은 것(큰 앨범의 이름 요청 제한, 쌍 비교 n², 실패한 이름 재시도)은 `llm-wiki/known-issues.md`.
+- 타임라인은 사진첩 변경 알림(`LibraryChangeWatcher`, 권한을 받은 뒤 `loadDays`에서 등록)으로 다시 읽는다. 보던 앨범은 `PhotoAlbum` 값이 아니라 id(`TimelineModel.albumID`)로 비교할 것 — 값에는 사진 수가 들어 있어 사진이 더해지면 달라진다.
+- 실행 중 사진첩이 바뀌는 상황은 디버그 인자 `-growSampleAlbumAfter <초>`로 만든다(샘플 앨범에 없는 사진을 앨범에 넣음, `testAlbumFollowsLibraryChanges`). 앨범에 없는 사진이 1장 이상 있어야 하므로 화면 테스트 전에 `a1.jpg`·`a2.jpg`를 매번 새로 `addmedia` 할 것. 샘플 앨범은 돌릴 때마다 2장씩 늘어난다.
 - 앨범 화면은 `LazyVStack`이라 화면 밖 줄은 접근성 트리에 없다. 화면 테스트에서 아래쪽 줄을 찾을 때는 `swipeUp`으로 내려가며 찾을 것(`testAlbumTimeline`).
 - `CLGeocoder`는 요청이 겹치면 뒤 요청에 답하지 않는다(맥에서 3개 동시 요청 → 첫 번째만 응답, 2026-11-16 확인). 장소 이름은 반드시 `PlaceNameLookup`을 거쳐 한 줄로 요청할 것. 지오코더를 직접 부르는 코드를 새로 만들지 말 것.
 - 배경 지식은 `llm-wiki/`(시작은 `llm-wiki/index.md`, 운영 규칙은 `llm-wiki/README.md`)에 있다. 기능·결정이 바뀌면 관련 페이지를 고치고 `llm-wiki/log.md`에 한 줄 추가할 것.

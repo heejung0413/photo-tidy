@@ -71,7 +71,7 @@ struct TimelineView: View {
         .onChange(of: model.day) {
             camera = .automatic
         }
-        .onChange(of: model.source) {
+        .onChange(of: model.albumID) {
             camera = .automatic
         }
         .sheet(isPresented: $isPickingDate) {
@@ -182,7 +182,7 @@ struct TimelineView: View {
                     Button {
                         model.showAlbum(album)
                     } label: {
-                        menuLabel("\(album.title) (\(album.count)장)", selected: model.source == .album(album))
+                        menuLabel("\(album.title) (\(album.count)장)", selected: model.albumID == album.id)
                     }
                 }
             }

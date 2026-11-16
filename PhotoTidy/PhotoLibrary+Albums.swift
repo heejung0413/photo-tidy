@@ -66,5 +66,33 @@ extension PhotoLibrary {
             PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: title).addAssets(assets)
         }
     }
+
+    /// 시뮬레이터 확인용: 앱이 켜져 있는 동안 앨범 내용이 바뀌는 상황을 만든다.
+    /// 사진첩에는 있지만 샘플 앨범에는 없는 사진을 모두 앨범에 넣는다.
+    func growSampleAlbum(title: String = "샘플 앨범") async {
+        var album: PHAssetCollection?
+        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+            .enumerateObjects { collection, _, stop in
+                if collection.localizedTitle == title {
+                    album = collection
+                    stop.pointee = true
+                }
+            }
+        guard let album else { return }
+        var inAlbum: Set<String> = []
+        PHAsset.fetchAssets(in: album, options: nil).enumerateObjects { asset, _, _ in
+            inAlbum.insert(asset.localIdentifier)
+        }
+        var missing: [PHAsset] = []
+        PHAsset.fetchAssets(with: .image, options: nil).enumerateObjects { asset, _, _ in
+            if !inAlbum.contains(asset.localIdentifier) {
+                missing.append(asset)
+            }
+        }
+        guard !missing.isEmpty else { return }
+        try? await PHPhotoLibrary.shared().performChanges {
+            PHAssetCollectionChangeRequest(for: album)?.addAssets(missing as NSArray)
+        }
+    }
     #endif
 }
