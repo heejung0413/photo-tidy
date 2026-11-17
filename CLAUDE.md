@@ -31,6 +31,8 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 - 웹 화면과 공유 이미지에는 원본 사진이 아니라 작게 줄인 썸네일(`makeThumbnail`, 짧은 변 264px)만 올린다. 원본 `File`로 `createObjectURL`을 만들어 `<img>`에 넣지 말 것.
 - 웹의 HEIC(2026-11-17 확인, `sips -s format heic`로 바꾼 샘플): 위치·촬영 시각은 읽혀 타임라인·지도는 정상, 크롬은 그림을 못 그려 썸네일만 빈 칸. 아이폰이 직접 찍은 HEIC와 사파리는 미확인. 크롬용 변환(heic 변환 라이브러리)은 사용자가 실제 사진을 올려 보고 결정하기로 함.
 - 웹 배포(2026-11-17 완료): https://photo-tidy-timeline.vercel.app — Vercel 계정 `heejung0413`의 개인 공간, 프로젝트 `photo-tidy-timeline`(같은 계정의 `Tix2U` 팀에 올리지 말 것). GitHub와 연결하지 않아 푸시로는 배포되지 않는다. 다시 올릴 때는 사용자에게 확인받고 `web/`에서 `vercel deploy --prod`. `vercel login`은 터미널에 나온 코드를 `vercel.com/device`에 입력하는 방식이라, 명령을 백그라운드로 실행해 출력에서 코드를 읽어 사용자에게 알려 주면 된다.
+- 웹에서 떨어뜨린 파일은 `event.dataTransfer.files`를 직접 쓰지 말고 `filesFromDrop`을 거칠 것. 폴더를 떨어뜨리면 `files`에는 폴더 자체가 파일 하나로 들어와 아무것도 안 올라간다(2026-11-17 재현). 화면 테스트에서 폴더 떨어뜨리기는 CDP `Input.dispatchDragEvent`의 `files`에 폴더 경로를 넣어 만든다.
+- 웹 성능 측정(2026-11-17, 로컬 크롬): 아이폰 JPEG 1,000장 정상(썸네일까지 39초, 메모리 29MB), 머문 곳 180곳 정상. 측정용 스크립트에서 장수 글자는 `1000장`이다(`toLocaleString`으로 `1,000장`을 찾다가 8분을 낭비함).
 - 장소 이름 서비스(Nominatim)는 1초에 1번만 허용한다. `PlaceNameLookup`의 `minInterval`을 거치지 않고 직접 부르지 말 것. 실제 응답에서 동 이름은 `address.suburb`에 온다(2026-11-17 확인).
 - 실제 아이폰 설치 진행 상태(2026-11-17): Xcode에 Apple 계정 로그인됨(Personal Team), `project.yml`에 `DEVELOPMENT_TEAM`을 넣었으나 **미커밋**(설치 성공을 확인한 뒤 커밋하기로 함). 아이폰(iPhone 15, iOS 26.6.1)은 연결·페어링됐지만 **개발자 모드가 꺼져 있어** 빌드가 기기를 못 쓴다 — 사용자가 설정 > 개인정보 보호 및 보안 > 개발자 모드를 켜야 한다. 기기 지정은 `xcrun devicectl list devices`의 Identifier가 아니라 xcodebuild가 보여 주는 id(`xcodebuild -showdestinations`의 `platform:iOS` 줄)를 `-destination "id=..."`에 쓸 것. Xcode는 26.2라 iOS 26.6 지원 여부는 미확인.
 - 배경 지식은 `llm-wiki/`(시작은 `llm-wiki/index.md`, 운영 규칙은 `llm-wiki/README.md`)에 있다. 기능·결정이 바뀌면 관련 페이지를 고치고 `llm-wiki/log.md`에 한 줄 추가할 것.

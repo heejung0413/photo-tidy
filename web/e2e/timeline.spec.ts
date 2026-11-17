@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const fixtures = join(import.meta.dirname, 'fixtures')
@@ -285,4 +285,27 @@ test('읽지 못한 파일 안내는 다음에 올릴 때 지워진다', async (
   await upload(page, samples)
   await expect(page.getByTestId('summary')).toContainText('6장')
   await expect(page.getByText('읽지 못한 파일')).toHaveCount(0)
+})
+
+test('사진이 든 폴더를 통째로 떨어뜨리면 그 안의 사진을 받는다', async ({ page }, testInfo) => {
+  // 폴더 안에 날짜별 폴더, 메모 파일, 숨김 파일이 섞여 있다.
+  const trip = testInfo.outputPath('trip')
+  mkdirSync(join(trip, 'day1'), { recursive: true })
+  mkdirSync(join(trip, 'day2'), { recursive: true })
+  samples.slice(0, 4).forEach((path, index) => copyFileSync(path, join(trip, 'day1', `a${index}.jpg`)))
+  samples.slice(4).forEach((path, index) => copyFileSync(path, join(trip, 'day2', `b${index}.jpg`)))
+  writeFileSync(join(trip, 'notes.txt'), '메모')
+  writeFileSync(join(trip, '.DS_Store'), '')
+
+  // 실제로 Finder에서 폴더를 끌어다 놓는 것과 같은 이벤트를 보낸다.
+  const cdp = await page.context().newCDPSession(page)
+  const data = { items: [], files: [trip], dragOperationsMask: 1 }
+  for (const type of ['dragEnter', 'dragOver', 'drop'] as const) {
+    await cdp.send('Input.dispatchDragEvent', { type, x: 400, y: 300, data })
+  }
+
+  await expect(page.getByTestId('summary')).toContainText('6장')
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  // 메모 파일만 읽지 못한 파일로 센다. 숨김 파일과 폴더 자체는 세지 않는다.
+  await expect(page.getByText('읽지 못한 파일 1개')).toBeVisible()
 })

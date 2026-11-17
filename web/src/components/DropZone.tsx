@@ -27,7 +27,7 @@ export function DropZone({ compact, onFiles }: Props) {
       {!compact && (
         <>
           <p className="drop-title">사진을 여기에 끌어다 놓으세요</p>
-          <p className="drop-hint">위치와 촬영 시각이 든 사진으로 지도와 타임라인을 만듭니다.</p>
+          <p className="drop-hint">위치와 촬영 시각이 든 사진으로 지도와 타임라인을 만듭니다. 사진이 든 폴더째 놓아도 됩니다.</p>
         </>
       )}
       <button type="button" className={compact ? 'button' : 'button primary'} onClick={() => input.current?.click()}>

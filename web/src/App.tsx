@@ -9,6 +9,7 @@ import { dayRoute, stopId } from './core/timeline'
 import { period } from './core/timelineText'
 import { Tuning } from './core/tuning'
 import type { Coordinate } from './core/types'
+import { filesFromDrop } from './services/droppedFiles'
 import { downloadBlob, makeShareImage } from './services/shareImage'
 
 export default function App() {
@@ -24,7 +25,8 @@ export default function App() {
     const allow = (event: DragEvent) => event.preventDefault()
     const drop = (event: DragEvent) => {
       event.preventDefault()
-      void addFiles([...(event.dataTransfer?.files ?? [])])
+      // 폴더를 떨어뜨리면 그 안의 사진을 꺼낸다.
+      void filesFromDrop(event.dataTransfer).then(addFiles)
     }
     window.addEventListener('dragover', allow)
     window.addEventListener('drop', drop)
