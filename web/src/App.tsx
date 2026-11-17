@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { DropZone } from './components/DropZone'
 import { StopList } from './components/StopList'
@@ -17,6 +17,17 @@ export default function App() {
   const [focus, setFocus] = useState<{ coordinate: Coordinate } | null>(null)
   const [isSharing, setIsSharing] = useState(false)
   const [shareError, setShareError] = useState(false)
+  const mapColumn = useRef<HTMLDivElement>(null)
+
+  /** 머문 곳을 누르면 지도를 그곳으로 옮긴다. */
+  function focusOn(coordinate: Coordinate) {
+    setFocus({ coordinate })
+    // 좁은 화면에서는 지도가 목록 위에 있어 화면 밖일 수 있다. 지도가 보이게 올려 보낸다.
+    const element = mapColumn.current
+    if (element && element.getBoundingClientRect().top < 0) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
   const { days, stops, title, number, addFiles } = timeline
 
@@ -62,7 +73,7 @@ export default function App() {
         outline,
         title: '타임라인',
         subtitle: summary,
-        thumbnail: timeline.latestThumbnail,
+        thumbnail: timeline.ensureThumbnail,
         lateName: timeline.latestName,
       })
       downloadBlob(blob, '타임라인.png')
@@ -118,14 +129,14 @@ export default function App() {
 
       {hasPhotos && (
         <div className="content">
-          <div className="map-column">
+          <div className="map-column" ref={mapColumn}>
             {pins.length > 0 ? (
               <TimelineMap pins={pins} routes={routes} focus={focus} />
             ) : (
               <p className="notice">올린 사진에 위치 정보가 없어 지도를 표시하지 못해요.</p>
             )}
           </div>
-          <StopList timeline={timeline} onFocus={(coordinate) => setFocus({ coordinate })} />
+          <StopList timeline={timeline} onFocus={focusOn} />
         </div>
       )}
 

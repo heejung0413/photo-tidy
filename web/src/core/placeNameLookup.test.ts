@@ -79,6 +79,13 @@ describe('PlaceNameLookup', () => {
     expect(await names.name(palace)).toBe('세종로')
   })
 
+  test('이름이 없다는 답을 받은 곳은 답을 받은 곳이다', async () => {
+    const { lookup } = fakeService({})
+    const names = new PlaceNameLookup({ cache: {}, lookup })
+    await names.name(palace)
+    expect(names.isUnknown(palace)).toBe(false)
+  })
+
   test('이름이 없다는 답은 기억해서 다시 묻지 않는다', async () => {
     const { state, lookup } = fakeService({})
     const saved: Record<string, string>[] = []
@@ -148,6 +155,16 @@ describe('PlaceNameLookup', () => {
       await names.name(places[5])
       await names.name(places[6])
       expect(state.calls).toBe(6)
+    })
+
+    test('아직 답을 받지 못한 곳인지 알려 준다', async () => {
+      const { state, names } = failing()
+      expect(names.isUnknown(places[0])).toBe(true)
+      await names.name(places[0]) // 실패
+      expect(names.isUnknown(places[0])).toBe(true)
+      state.fail = false
+      await names.name(places[0]) // 이름을 받음
+      expect(names.isUnknown(places[0])).toBe(false)
     })
 
     test('쉬는 동안에도 기억한 이름은 돌려준다', async () => {

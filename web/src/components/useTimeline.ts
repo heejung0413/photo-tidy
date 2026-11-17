@@ -36,8 +36,8 @@ export interface Timeline {
   rename: (stop: TimelineStop, text: string) => void
   /** 작게 줄인 그림의 주소. 아직 만들지 못했거나 브라우저가 그리지 못하는 형식이면 undefined. */
   thumbnail: (photoId: string) => string | undefined
-  /** 부르는 순간까지 만들어진 썸네일. 오래 걸리는 작업이 끝난 뒤에 불러도 된다. */
-  latestThumbnail: (photoId: string) => string | undefined
+  /** 썸네일 주소. 아직 만들지 않았으면 만들 때까지 기다린다(공유 이미지용). 그리지 못하는 사진이면 undefined. */
+  ensureThumbnail: (photoId: string) => Promise<string | undefined>
 }
 
 function loadPlaceNames(): Record<string, string> {
@@ -58,12 +58,25 @@ export function useTimeline(): Timeline {
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
   /** 만든 썸네일 주소 전부(지울 때 풀기 위해, 그리고 최신 값을 읽기 위해). */
   const thumbnailURLs = useRef(new Map<string, string>())
+  /** 아직 썸네일을 만들지 않은 사진의 파일. */
+  const pendingFiles = useRef(new Map<string, File>())
+  /** 지금 만들고 있는 썸네일. 같은 사진을 두 번 만들지 않기 위해 둔다. */
+  const makingThumbnails = useRef(new Map<string, Promise<string | undefined>>())
+  /** 만들었지만 아직 화면 상태에 넣지 않은 썸네일. 여러 장을 모아 한 번에 넣는다. */
+  const readyThumbnails = useRef<{ batch: Record<string, string>; timer: ReturnType<typeof setTimeout> | null }>({
+    batch: {},
+    timer: null,
+  })
   /** 지금 들어 있는 사진 id. 같은 파일을 다시 올렸는지 보는 데 쓴다. */
   const knownIDs = useRef(new Set<string>())
-  /** "전부 지우기"를 누를 때마다 올라간다. 그 전에 읽기 시작한 사진을 버리는 데 쓴다. */
+  /** "전부 지우기"를 누를 때마다 올라간다. 그 전에 올린 사진을 버리는 데 쓴다. */
   const generation = useRef(0)
-  /** 사진 묶음을 차례로 읽기 위한 줄. 앞 묶음이 끝나야 다음 묶음을 읽는다. */
+  /** 사진 묶음을 차례로 읽기 위한 줄. 앞 묶음을 다 읽어야 다음 묶음을 읽는다. */
   const queue = useRef<Promise<void>>(Promise.resolve())
+  /** 썸네일을 차례로 만들기 위한 줄. 사진 읽기와 따로 돈다. */
+  const thumbnailQueue = useRef<Promise<void>>(Promise.resolve())
+  /** 이름을 받지 못한 곳이 남아 다시 물어볼 때마다 올라간다. */
+  const [retryTick, setRetryTick] = useState(0)
   /** 화면을 그린 뒤에도 최신 값을 읽을 수 있게 둔다. */
   const latestCustomNames = useRef(customNames)
   useEffect(() => {
@@ -87,6 +100,7 @@ export function useTimeline(): Timeline {
   // 위치가 있는 머문 곳의 이름을 하나씩 받아 온다.
   useEffect(() => {
     let cancelled = false
+    let retry: ReturnType<typeof setTimeout> | null = null
     void (async () => {
       for (const stop of stops) {
         if (cancelled) return
@@ -98,69 +112,116 @@ export function useTimeline(): Timeline {
           setPlaceNames((names) => (names[key] === name ? names : { ...names, [key]: name }))
         }
       }
+      // 요청이 실패했거나 쉬는 중이라 답을 받지 못한 곳이 남았으면, 잠시 뒤 다시 묻는다.
+      if (stops.some((stop) => stop.center && lookup.current!.isUnknown(stop.center))) {
+        retry = setTimeout(() => setRetryTick((tick) => tick + 1), Tuning.placeNameRetryDelay)
+      }
     })()
     return () => {
       cancelled = true
+      if (retry) clearTimeout(retry)
     }
-  }, [stops])
+  }, [stops, retryTick])
 
-  /** 사진 묶음 하나를 읽는다. 읽는 도중 "전부 지우기"를 누르면 읽은 것을 버린다. */
-  const readBatch = useCallback(async (files: File[]) => {
-    const started = generation.current
-    const added: { photo: TimelinePhoto; file: File }[] = []
-    const seen = new Set<string>()
-    let skipped = 0
-    let fileTime = 0
-    setReading({ done: 0, total: files.length })
-    for (const [index, file] of files.entries()) {
-      const result = await readPhoto(file)
-      if (generation.current !== started) return
-      if (result === null) {
-        skipped += 1
-      } else if (!knownIDs.current.has(result.photo.id) && !seen.has(result.photo.id)) {
-        // 같은 파일을 다시 올리면 한 번만 넣는다.
-        seen.add(result.photo.id)
-        added.push({ photo: result.photo, file })
-        if (result.usedFileTime) fileTime += 1
-      }
-      setReading({ done: index + 1, total: files.length })
+  /** 만든 썸네일을 화면 상태에 넣는다. 한 장씩 넣으면 그때마다 목록 전체를 다시 그리므로 모아서 넣는다. */
+  const showThumbnail = useCallback((photoId: string, url: string) => {
+    const ready = readyThumbnails.current
+    ready.batch[photoId] = url
+    if (ready.timer === null) {
+      ready.timer = setTimeout(() => {
+        const batch = ready.batch
+        ready.batch = {}
+        ready.timer = null
+        setThumbnails((current) => ({ ...current, ...batch }))
+      }, 100)
     }
-    for (const { photo } of added) {
-      knownIDs.current.add(photo.id)
-    }
-    setPhotos((current) => [...current, ...added.map((item) => item.photo)])
-    // 읽지 못한 파일 안내는 방금 올린 묶음의 것만 보여 준다.
-    setSkippedFiles(skipped)
-    setFileTimePhotos((count) => count + fileTime)
-    setReading(null)
-
-    // 썸네일은 사진을 화면에 올린 뒤 하나씩 만든다. 여러 장을 한꺼번에 풀면 메모리를 많이 쓴다.
-    let ready: Record<string, string> = {}
-    const flush = () => {
-      const batch = ready
-      ready = {}
-      setThumbnails((current) => ({ ...current, ...batch }))
-    }
-    for (const { photo, file } of added) {
-      const url = await makeThumbnail(file)
-      if (generation.current !== started) {
-        if (url) URL.revokeObjectURL(url)
-        return
-      }
-      if (url) {
-        thumbnailURLs.current.set(photo.id, url)
-        ready[photo.id] = url
-        if (Object.keys(ready).length >= 8) flush()
-      }
-    }
-    flush()
   }, [])
+
+  /**
+   * 사진의 썸네일 주소. 아직 만들지 않았으면 지금 만든다.
+   * 브라우저가 그리지 못하는 형식이거나 사진이 지워졌으면 undefined.
+   */
+  const ensureThumbnail = useCallback(
+    (photoId: string): Promise<string | undefined> => {
+      const made = thumbnailURLs.current.get(photoId)
+      if (made) return Promise.resolve(made)
+      const making = makingThumbnails.current.get(photoId)
+      if (making) return making
+      const file = pendingFiles.current.get(photoId)
+      if (!file) return Promise.resolve(undefined)
+      const started = generation.current
+      const promise = makeThumbnail(file).then((url) => {
+        if (generation.current !== started) {
+          // 만드는 사이 "전부 지우기"를 눌렀다.
+          if (url) URL.revokeObjectURL(url)
+          return undefined
+        }
+        makingThumbnails.current.delete(photoId)
+        pendingFiles.current.delete(photoId)
+        if (!url) return undefined
+        thumbnailURLs.current.set(photoId, url)
+        showThumbnail(photoId, url)
+        return url
+      })
+      makingThumbnails.current.set(photoId, promise)
+      return promise
+    },
+    [showThumbnail],
+  )
+
+  /**
+   * 사진 묶음 하나를 읽는다. started는 이 묶음을 올린 때의 generation이다.
+   * 그 뒤로 "전부 지우기"를 눌렀으면(읽는 중이든 줄에서 기다리는 중이든) 버린다.
+   */
+  const readBatch = useCallback(
+    async (files: File[], started: number) => {
+      if (generation.current !== started) return
+      const added: { photo: TimelinePhoto; file: File }[] = []
+      const seen = new Set<string>()
+      let skipped = 0
+      let fileTime = 0
+      setReading({ done: 0, total: files.length })
+      for (const [index, file] of files.entries()) {
+        const result = await readPhoto(file)
+        if (generation.current !== started) return
+        if (result === null) {
+          skipped += 1
+        } else if (!knownIDs.current.has(result.photo.id) && !seen.has(result.photo.id)) {
+          // 같은 파일을 다시 올리면 한 번만 넣는다.
+          seen.add(result.photo.id)
+          added.push({ photo: result.photo, file })
+          if (result.usedFileTime) fileTime += 1
+        }
+        setReading({ done: index + 1, total: files.length })
+      }
+      for (const { photo, file } of added) {
+        knownIDs.current.add(photo.id)
+        pendingFiles.current.set(photo.id, file)
+      }
+      setPhotos((current) => [...current, ...added.map((item) => item.photo)])
+      // 읽지 못한 파일 안내는 방금 올린 묶음의 것만 보여 준다.
+      setSkippedFiles(skipped)
+      setFileTimePhotos((count) => count + fileTime)
+      setReading(null)
+
+      // 썸네일은 사진 읽기와 따로, 한 장씩 만든다(여러 장을 한꺼번에 풀면 메모리를 많이 쓴다).
+      // 다음 묶음은 이 썸네일을 기다리지 않고 바로 읽는다.
+      thumbnailQueue.current = thumbnailQueue.current.then(async () => {
+        for (const { photo } of added) {
+          if (generation.current !== started) return
+          await ensureThumbnail(photo.id)
+        }
+      })
+    },
+    [ensureThumbnail],
+  )
 
   const addFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return Promise.resolve()
+      const started = generation.current
       // 여러 묶음을 연달아 올려도 진행 표시가 섞이지 않게 차례로 읽는다.
-      queue.current = queue.current.then(() => readBatch(files)).catch(() => {})
+      queue.current = queue.current.then(() => readBatch(files, started)).catch(() => {})
       return queue.current
     },
     [readBatch],
@@ -172,6 +233,9 @@ export function useTimeline(): Timeline {
       URL.revokeObjectURL(url)
     }
     thumbnailURLs.current.clear()
+    pendingFiles.current.clear()
+    makingThumbnails.current.clear()
+    readyThumbnails.current.batch = {}
     knownIDs.current.clear()
     setThumbnails({})
     setPhotos([])
@@ -192,8 +256,6 @@ export function useTimeline(): Timeline {
       latestCustomNames.current.name(stop) ?? (stop.center ? lookup.current!.cachedName(stop.center) : null),
     [],
   )
-
-  const latestThumbnail = useCallback((photoId: string) => thumbnailURLs.current.get(photoId), [])
 
   const title = useCallback(
     (stop: TimelineStop) => {
@@ -227,6 +289,6 @@ export function useTimeline(): Timeline {
     latestName,
     rename,
     thumbnail: (photoId) => thumbnails[photoId],
-    latestThumbnail,
+    ensureThumbnail,
   }
 }

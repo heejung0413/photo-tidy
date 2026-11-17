@@ -309,3 +309,107 @@ test('사진이 든 폴더를 통째로 떨어뜨리면 그 안의 사진을 받
   // 메모 파일만 읽지 못한 파일로 센다. 숨김 파일과 폴더 자체는 세지 않는다.
   await expect(page.getByText('읽지 못한 파일 1개')).toBeVisible()
 })
+
+// ---- 2026-11-17 두 번째 코드 리뷰에서 나온 문제 ----
+
+/** 썸네일 만들기를 느리게 한다(사진 한 장에 ms). 큰 사진이 많을 때의 상황을 흉내 낸다. */
+async function slowThumbnails(page: Page, ms: number) {
+  await page.addInitScript((delay) => {
+    const original = window.createImageBitmap.bind(window)
+    window.createImageBitmap = (async (...args: Parameters<typeof createImageBitmap>) => {
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      return original(...args)
+    }) as typeof createImageBitmap
+  }, ms)
+  await page.reload()
+}
+
+test('묶음을 연달아 올리고 읽는 중에 전부 지우면, 기다리던 묶음도 올라오지 않는다', async ({ page }, testInfo) => {
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  await upload(page, manyCopies(testInfo.outputPath('first'), 400))
+  await upload(page, manyCopies(testInfo.outputPath('second'), 30))
+  await expect(page.getByRole('status')).toContainText('사진을 읽는 중')
+  await page.getByRole('button', { name: '전부 지우기' }).click()
+
+  await expect(page.getByText('사진을 여기에 끌어다 놓으세요')).toBeVisible()
+  await page.waitForTimeout(4000)
+  await expect(page.getByTestId('stop-card')).toHaveCount(0)
+  await expect(page.getByText('사진을 여기에 끌어다 놓으세요')).toBeVisible()
+  await expect(page.getByRole('status')).toHaveCount(0)
+})
+
+test('썸네일이 다 만들어지기 전에 저장해도, 이미지에는 사진이 그려져 있다', async ({ page }, testInfo) => {
+  await slowThumbnails(page, 300)
+  await upload(page, samples)
+  await expect(page.getByTestId('summary')).toContainText('6장')
+  // 썸네일 6장을 만드는 데 2초쯤 걸린다. 그 전에 저장을 누른다.
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '이미지로 저장' }).click()
+  const path = testInfo.outputPath('early.png')
+  await (await download).saveAs(path)
+
+  const colors = await page.evaluate(async (url) => {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    // 머문 곳 다섯 줄의 첫 썸네일 가운데. 날짜 구분 줄(64)이 둘째 날 앞에 한 번 더 있다.
+    const rows = [984, 984 + 252, 984 + 504, 984 + 756 + 64, 984 + 1008 + 64]
+    return rows.map((y) => [...context.getImageData(142, y, 1, 1).data.slice(0, 3)])
+  }, `data:image/png;base64,${readFileSync(path).toString('base64')}`)
+  // 빈 칸은 회색(229, 229, 234)이다. 다섯 줄 모두 사진 색이어야 한다.
+  for (const [r, g, b] of colors) {
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThan(40)
+  }
+})
+
+test('앞 묶음의 썸네일을 만드는 중에도 다음 묶음을 바로 읽는다', async ({ page }) => {
+  await slowThumbnails(page, 500)
+  await upload(page, samples)
+  await expect(page.getByTestId('summary')).toContainText('6장')
+  // 썸네일 6장에 3초쯤 걸린다. 그사이 한 장을 더 올린다.
+  await upload(page, [join(fixtures, '..', '..', 'src', 'services', 'fixtures', 'sydney.jpg')])
+  await expect(page.getByTestId('summary')).toContainText('7장', { timeout: 1500 })
+})
+
+test('이름 요청이 연달아 실패해 쉬었다가, 쉬는 시간이 지나면 다시 묻는다', async ({ page }) => {
+  await page.clock.install()
+  // 처음 세 번은 인터넷이 끊긴 것처럼 실패시킨다.
+  let requests = 0
+  await page.unroute('https://nominatim.openstreetmap.org/**')
+  await page.route('https://nominatim.openstreetmap.org/**', (route) => {
+    requests += 1
+    if (requests <= 3) return route.abort()
+    return route.fulfill({ json: { address: { suburb: `동네${requests}` } }, headers: { 'access-control-allow-origin': '*' } })
+  })
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  await expect.poll(() => requests, { timeout: 15_000 }).toBe(3)
+  // 세 번 실패한 뒤에는 쉰다. 남은 두 곳은 묻지 않는다.
+  await page.clock.runFor(5000)
+  expect(requests).toBe(3)
+  await expect(page.getByTestId('stop-card').nth(0)).toContainText('장소 1')
+
+  // 1분 남짓 지나면 다시 물어 다섯 곳 모두 이름이 붙는다.
+  await page.clock.runFor(90_000)
+  await expect.poll(() => requests, { timeout: 15_000 }).toBe(8)
+  for (let index = 0; index < 5; index += 1) {
+    await expect(page.getByTestId('stop-card').nth(index)).toContainText('동네')
+  }
+})
+
+test('좁은 화면에서 머문 곳을 누르면 지도가 보이는 곳으로 올라간다', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 })
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  const last = page.getByTestId('stop-card').nth(4)
+  await last.scrollIntoViewIfNeeded()
+  await expect(page.getByTestId('map')).not.toBeInViewport()
+  await last.locator('.stop-main').click()
+  await expect(page.getByTestId('map')).toBeInViewport({ ratio: 0.9 })
+})

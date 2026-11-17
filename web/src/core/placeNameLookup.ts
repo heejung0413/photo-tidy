@@ -61,6 +61,12 @@ export class PlaceNameLookup {
     return this.cache[placeKey(coordinate)] ?? null
   }
 
+  /** 아직 답(이름, 또는 이름이 없다는 답)을 받지 못한 곳인가. 나중에 다시 물어볼 대상이다. */
+  isUnknown(coordinate: Coordinate): boolean {
+    const key = placeKey(coordinate)
+    return this.cache[key] === undefined && !this.nameless.has(key)
+  }
+
   /**
    * 이름이 없거나 요청이 실패하면 null.
    * 이름이 없다는 답은 기억해서 다시 묻지 않는다. 실패는 기억하지 않으므로 다음에 다시 묻되,

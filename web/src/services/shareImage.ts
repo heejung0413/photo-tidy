@@ -8,8 +8,8 @@ export interface ShareImageOptions {
   outline: ShareOutline
   title: string
   subtitle: string
-  /** 사진 id → 그릴 수 있는 주소. */
-  thumbnail: (photoId: string) => string | undefined
+  /** 사진 id → 그릴 수 있는 주소. 아직 만들지 않은 썸네일은 만들어서 준다. 그리지 못하는 사진이면 undefined. */
+  thumbnail: (photoId: string) => Promise<string | undefined>
   /** 이미지를 준비하는 사이 도착한 이름. 없으면 null. */
   lateName: (stop: TimelineStop) => string | null
 }
@@ -123,16 +123,16 @@ async function drawMap(outline: ShareOutline, width: number, height: number): Pr
 export async function makeShareImage(options: ShareImageOptions): Promise<Blob> {
   const first = options.outline
   const thumbnailIDs = first.sections.flatMap((section) => section.stops.flatMap((item) => item.thumbnailIDs))
-  const [mapCanvas, thumbnailImages] = await Promise.all([
-    drawMap(first, WIDTH - MARGIN * 2, MAP_HEIGHT),
-    Promise.all(
-      thumbnailIDs.map(async (id) => {
-        const src = options.thumbnail(id)
-        return [id, src ? await loadImage(src, false) : null] as const
-      }),
-    ),
-  ])
-  const thumbnails = new Map(thumbnailImages)
+  const loadThumbnails = async () => {
+    const loaded = new Map<string, HTMLImageElement | null>()
+    // 아직 없는 썸네일은 여기서 만들어진다. 한꺼번에 만들면 메모리를 많이 쓰므로 한 장씩 받는다.
+    for (const id of thumbnailIDs) {
+      const src = await options.thumbnail(id)
+      loaded.set(id, src ? await loadImage(src, false) : null)
+    }
+    return loaded
+  }
+  const [mapCanvas, thumbnails] = await Promise.all([drawMap(first, WIDTH - MARGIN * 2, MAP_HEIGHT), loadThumbnails()])
   // 그림을 받는 사이 도착한 장소 이름을 반영한다.
   const outline = retitled(first, options.lateName)
   const withYear = new Set(outline.sections.map((section) => section.day.slice(0, 4))).size > 1
