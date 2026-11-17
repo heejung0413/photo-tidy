@@ -5,6 +5,8 @@
 
 사진은 브라우저 밖으로 나가지 않는다. 장소 이름을 받을 때 머문 곳의 좌표가, 지도를 그릴 때 보고 있는 지역이 오픈스트리트맵 서버로 전송된다.
 
+공개 주소: https://photo-tidy-timeline.vercel.app
+
 ## 실행
 
 Node.js 22 이상.
@@ -25,6 +27,14 @@ npm run build      # 타입 검사 + 배포용 파일(dist/)
 화면 테스트는 `e2e/fixtures/`의 샘플 사진 6장(위치·시각 포함, 이틀 치)을 올린다.
 지도 타일과 장소 이름 요청은 가짜 응답으로 바꿔서 인터넷 없이도 돈다.
 샘플은 저장소 루트에서 `swift scripts/make-timeline-samples.swift web/e2e/fixtures`로 다시 만들 수 있다.
+
+## 배포
+
+Vercel(개인 계정의 `photo-tidy-timeline` 프로젝트)에 터미널에서 올린다. GitHub와 연결하지 않았으므로 푸시해도 자동으로 배포되지 않는다.
+
+```bash
+vercel deploy --prod      # web/ 폴더에서. 로그인이 풀렸으면 먼저 vercel login
+```
 
 ## 구조
 

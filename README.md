@@ -41,6 +41,8 @@
 | --- | --- |
 | <img src="docs/screenshots/web/w1-timeline.png" width="460"> | <img src="docs/screenshots/web/w2-shared-image.png" width="200"> |
 
+**https://photo-tidy-timeline.vercel.app**
+
 사진 파일을 끌어다 놓으면 지도와 날짜별 머문 곳을 만들고 이미지 한 장으로 저장합니다. 아이폰이 없어도 쓸 수 있습니다.
 웹은 사진첩을 읽거나 지울 수 없어서 정리 기능은 없습니다.
 
