@@ -24,6 +24,9 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 - 실행 중 사진첩이 바뀌는 상황은 디버그 인자 `-growSampleAlbumAfter <초>`로 만든다(샘플 앨범에 없는 사진을 앨범에 넣음, `testAlbumFollowsLibraryChanges`). 앨범에 없는 사진이 1장 이상 있어야 하므로 화면 테스트 전에 `a1.jpg`·`a2.jpg`를 매번 새로 `addmedia` 할 것. 샘플 앨범은 돌릴 때마다 2장씩 늘어난다.
 - 앨범 화면은 `LazyVStack`이라 화면 밖 줄은 접근성 트리에 없다. 화면 테스트에서 아래쪽 줄을 찾을 때는 `swipeUp`으로 내려가며 찾을 것(`testAlbumTimeline`).
 - `CLGeocoder`는 요청이 겹치면 뒤 요청에 답하지 않는다(맥에서 3개 동시 요청 → 첫 번째만 응답, 2026-11-16 확인). 장소 이름은 반드시 `PlaceNameLookup`을 거쳐 한 줄로 요청할 것. 지오코더를 직접 부르는 코드를 새로 만들지 말 것.
+- 웹 버전은 `web/`(Vite + React + TypeScript, 타임라인만). 판단 규칙은 `web/src/core/`에 두고 브라우저 기능을 쓰지 않는다. 확인은 `web/`에서 `npm test`(Vitest) · `npm run e2e`(Playwright, 시스템 크롬, 타일·이름 요청은 가짜 응답) · `npm run build`(타입 검사 포함). 타임라인 규칙을 고치면 Swift(`PhotoTidyCore`)와 TypeScript(`web/src/core`) 양쪽을 같이 고칠 것 — 대응표는 `llm-wiki/web.md`.
+- 웹 프로젝트는 `erasableSyntaxOnly`라 `enum`과 생성자 매개변수 속성(`constructor(private x)`)을 쓸 수 없다. Vitest는 타입 검사를 하지 않으므로 테스트가 통과해도 `npx tsc -b`를 따로 돌릴 것.
+- 장소 이름 서비스(Nominatim)는 1초에 1번만 허용한다. `PlaceNameLookup`의 `minInterval`을 거치지 않고 직접 부르지 말 것. 실제 응답에서 동 이름은 `address.suburb`에 온다(2026-11-17 확인).
 - 배경 지식은 `llm-wiki/`(시작은 `llm-wiki/index.md`, 운영 규칙은 `llm-wiki/README.md`)에 있다. 기능·결정이 바뀌면 관련 페이지를 고치고 `llm-wiki/log.md`에 한 줄 추가할 것.
 - 앱 기본 언어는 한국어(`project.yml`의 `developmentLanguage: ko`) — 없으면 '뒤로'·공유 창 등 시스템 글자가 영어로 나온다. 화면 테스트는 `setUp`에서 한국어 지역 인자로 앱을 띄우므로, 테스트에서 글자를 찾을 때 시각은 `9:10`처럼 숫자 부분만 맞출 것(`오전 9:10`).
 - 새 테스트는 통과만 보지 말고, 대상 로직을 `sed`로 한 줄 망가뜨린 뒤 `swift test`가 실패하는지 확인할 것(원본은 스크래치에 복사해 두고 되돌림). 2026-11-16에 `이전 날` 테스트가 망가진 코드를 못 잡는 것을 이 방법으로 찾았다.

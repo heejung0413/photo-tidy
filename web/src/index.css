@@ -1,1 +1,39 @@
-body { margin: 0; }
+:root {
+  --accent: rgb(13, 133, 122);
+  --accent-soft: rgba(13, 133, 122, 0.12);
+  --background: #f2f2f7;
+  --card: #fff;
+  --text: #111;
+  --secondary: #6b6b70;
+  --line: #d1d1d6;
+  --radius: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  color: var(--text);
+  background: var(--background);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: rgb(64, 190, 176);
+    --accent-soft: rgba(64, 190, 176, 0.18);
+    --background: #000;
+    --card: #1c1c1e;
+    --text: #f5f5f7;
+    --secondary: #a1a1a6;
+    --line: #3a3a3c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}

@@ -1,0 +1,48 @@
+# 웹 타임라인
+
+2026-11-17 추가. 설계는 `docs/superpowers/specs/2026-11-17-web-timeline-design.md`, 실행법은 `web/README.md`.
+
+## 무엇인가
+
+아이폰 앱의 타임라인 기능만 브라우저로 옮긴 정적 사이트(`web/`). 사진 파일을 올리면 지도·날짜별 머문 곳·공유 이미지를 만든다.
+정리 기능은 없다(웹은 사진첩을 읽거나 지울 수 없다). 하루씩 넘겨 보기도 없고, 올린 사진 전체를 앨범 보기처럼 한 화면에 보여 준다.
+
+## 기술
+
+Vite + React + TypeScript, Leaflet + 오픈스트리트맵 타일, `exifr`(사진 정보), Nominatim(장소 이름), 일반 CSS, Vitest, Playwright(시스템 크롬).
+
+## 구조와 Swift 대응
+
+| 웹 | 아이폰 앱 | 비고 |
+| --- | --- | --- |
+| `core/timeline.ts` | `TimelineBuilder` | 날짜는 `Calendar` 대신 시간대 이름으로 계산. `TimelineDay.day`는 `"2026-11-14"` 글자 |
+| `core/timelineText.ts` | `TimelineText` | `dayLabel` 추가 |
+| `core/placeNameLookup.ts` | `PlaceNameLookup` | 요청 사이 최소 간격(1.1초) 추가. 서비스가 오류를 던져도 줄이 이어진다 |
+| `core/customNames.ts` | `CustomPlaceNames` | 값을 바꾸지 않고 새 값을 돌려준다(React 상태용). 옛 저장 형식 읽기는 없다 |
+| `core/shareOutline.ts` | `ShareOutline` | |
+| `core/mercator.ts` | (없음) | 공유 이미지의 지도를 직접 그리기 위한 좌표↔픽셀 계산. 아이폰은 `MKMapSnapshotter`가 해 준다 |
+| `core/pickPlaceName.ts` | `PlaceNamer`의 이름 고르기 | 동(`suburb`) → 구 → 시 순 |
+| `services/readPhoto.ts` | `PhotoLibrary+Timeline` | 사진 id는 `파일이름|크기|수정시각` |
+| `services/shareImage.ts` | `TimelineShare` | 캔버스에 타일·선·핀·목록을 그린다 |
+| `components/useTimeline.ts` | `TimelineModel` | |
+
+## 정한 것
+
+- 받아 온 이름은 머문 곳 id가 아니라 좌표 칸(`placeKey`)으로 기억한다. 사진을 더 올려 머문 곳이 다시 만들어져도 이름이 유지된다.
+- 받아 온 이름과 직접 붙인 이름은 `localStorage`(`photo-tidy.place-names`, `photo-tidy.custom-place-names`)에 저장한다. 사진은 저장하지 않는다.
+- 사진의 촬영 시각에는 시간대가 없어서, 보는 사람 브라우저의 시간대 시각으로 읽는다.
+- 사진 정보를 읽지 못한 사진도 넣는다(위치 없음, 파일 수정 시각). 사진이 아닌 파일만 건너뛴다.
+- 공유 이미지는 버튼을 누른 순간의 내용으로 만들고, 그림을 받는 사이 도착한 이름만 다시 채운다(아이폰과 같다).
+- 지도는 Leaflet을 `useEffect`로 직접 쓴다(react-leaflet 없음). 창 크기가 바뀌면 범위를 다시 맞춘다.
+
+## 확인한 것 (2026-11-17)
+
+- 로직 테스트 88개, 화면 테스트 7개 통과. 로직을 16가지로 망가뜨려 테스트가 잡는지 확인했고, 못 잡은 2가지는 테스트를 보탰다.
+- 실제 오픈스트리트맵 타일과 Nominatim으로 샘플 6장을 올려, 동네 이름(성수2가3동, 역삼1동 등)과 공유 이미지를 확인했다. 캡처는 `docs/screenshots/web/`.
+
+## 안 한 것, 모르는 것
+
+- 배포(Vercel 등). 저장소가 비공개라 GitHub Pages 무료 배포는 안 된다.
+- 실제 사진(수백 장, HEIC, 아이폰 브라우저에서 고른 사진)으로는 써 보지 않았다.
+- 큰 사진을 썸네일로 그대로 쓴다. 수백 장이면 메모리를 많이 쓸 수 있다.
+- 머문 곳이 많으면 이름이 다 뜨는 데 그만큼 초가 걸린다(1초에 하나).

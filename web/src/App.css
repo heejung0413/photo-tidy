@@ -1,0 +1,285 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.summary {
+  margin: 4px 0 0;
+  color: var(--secondary);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.button {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.drop-zone {
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 56px 16px;
+  text-align: center;
+  background: var(--card);
+}
+
+.drop-zone.compact {
+  padding: 12px;
+  border-width: 1px;
+  text-align: left;
+}
+
+.drop-zone.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drop-title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.drop-hint {
+  margin: 0 0 20px;
+  color: var(--secondary);
+}
+
+.notice {
+  margin: 12px 0 0;
+  color: var(--secondary);
+  font-size: 14px;
+}
+
+.notice.error {
+  color: #d70015;
+}
+
+.content {
+  margin-top: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.map {
+  height: 320px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  /* 지도가 다른 화면 요소 위로 올라오지 않게 한다. */
+  isolation: isolate;
+}
+
+@media (min-width: 900px) {
+  .content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .map-column {
+    position: sticky;
+    top: 16px;
+  }
+
+  .map {
+    height: calc(100vh - 32px);
+    max-height: 720px;
+  }
+}
+
+.map-pin span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgb(13, 133, 122);
+  border: 2px solid #fff;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.day-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 10px;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.stop-list section:first-child .day-divider {
+  margin-top: 0;
+}
+
+.day-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.stop-card {
+  margin-bottom: 12px;
+}
+
+.stop-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stop-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stop-main:disabled {
+  cursor: default;
+}
+
+.badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.stop-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stop-title {
+  font-weight: 700;
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stop-meta {
+  color: var(--secondary);
+  font-size: 14px;
+}
+
+.icon-button {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font-size: 18px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rename input {
+  flex: 1;
+  min-width: 140px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--card);
+}
+
+.rename-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.thumbnails {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.thumbnail {
+  flex: none;
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--line);
+}
+
+.footer {
+  margin-top: 32px;
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.footer p {
+  margin: 4px 0;
+}
+
+.footer a {
+  color: inherit;
+}

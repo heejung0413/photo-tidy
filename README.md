@@ -7,6 +7,8 @@
 
 사진은 기기 밖으로 나가지 않습니다. 타임라인의 장소 이름을 받을 때만 머문 곳의 좌표가 애플 지도 서버로 전송됩니다.
 
+타임라인 기능은 브라우저에서 쓰는 [웹 버전](#웹-버전)도 있습니다.
+
 ## 기능
 
 ### 정리
@@ -32,6 +34,23 @@
 - **이미지 공유**: 보고 있는 타임라인을 이미지 한 장으로 만들어 공유합니다.
 
 화면 전체 캡처는 [`docs/screenshots/`](docs/screenshots)에 있습니다.
+
+## 웹 버전
+
+| 화면 | 저장되는 이미지 |
+| --- | --- |
+| <img src="docs/screenshots/web/w1-timeline.png" width="460"> | <img src="docs/screenshots/web/w2-shared-image.png" width="200"> |
+
+사진 파일을 끌어다 놓으면 지도와 날짜별 머문 곳을 만들고 이미지 한 장으로 저장합니다. 아이폰이 없어도 쓸 수 있습니다.
+웹은 사진첩을 읽거나 지울 수 없어서 정리 기능은 없습니다.
+
+```bash
+cd web
+npm install
+npm run dev        # http://localhost:5173
+```
+
+자세한 내용은 [`web/README.md`](web/README.md)에 있습니다.
 
 ## 시작하기
 
@@ -110,6 +129,7 @@ photo-tidy/
 ├── PhotoTidy/                     앱 — 사진첩·지도 접근과 화면
 │   └── Views/                     화면
 ├── PhotoTidyUITests/              시뮬레이터 화면 테스트
+├── web/                           웹 타임라인 (React + TypeScript)
 ├── scripts/                       테스트용 샘플 사진 생성
 ├── docs/
 │   ├── screenshots/               README·문서용 화면 캡처
@@ -123,7 +143,7 @@ photo-tidy/
 
 `PhotoTidy.xcodeproj`, `PhotoTidy/Info.plist`, `build/`는 생성되는 파일이라 저장소에 없습니다.
 
-코드는 세 덩어리입니다. **판단 규칙은 `PhotoTidyCore`에, 아이폰 기능을 부르는 코드와 화면은 `PhotoTidy`에** 둡니다. 로직을 따로 떼어 둔 덕분에 시뮬레이터 없이 맥에서 바로 테스트할 수 있습니다.
+아이폰 앱 코드는 세 덩어리입니다. **판단 규칙은 `PhotoTidyCore`에, 아이폰 기능을 부르는 코드와 화면은 `PhotoTidy`에** 둡니다. 로직을 따로 떼어 둔 덕분에 시뮬레이터 없이 맥에서 바로 테스트할 수 있습니다.
 
 ### `PhotoTidyCore/Sources/PhotoTidyCore/` — 로직
 
