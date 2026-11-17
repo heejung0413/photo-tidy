@@ -6,7 +6,10 @@ interface Props {
   onFiles: (files: File[]) => void
 }
 
-/** 사진을 끌어다 놓거나 파일 선택 창에서 고르는 영역. */
+/**
+ * 사진을 끌어다 놓거나 파일 선택 창에서 고르는 영역.
+ * 떨어뜨린 파일은 페이지 전체가 받는다(App). 여기서는 끌고 있을 때 강조만 한다.
+ */
 export function DropZone({ compact, onFiles }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -19,11 +22,7 @@ export function DropZone({ compact, onFiles }: Props) {
         setIsOver(true)
       }}
       onDragLeave={() => setIsOver(false)}
-      onDrop={(event) => {
-        event.preventDefault()
-        setIsOver(false)
-        onFiles([...event.dataTransfer.files])
-      }}
+      onDrop={() => setIsOver(false)}
     >
       {!compact && (
         <>

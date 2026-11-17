@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const fixtures = join(import.meta.dirname, 'fixtures')
@@ -12,21 +13,37 @@ const blankTile = Buffer.from(
   'base64',
 )
 
-/** 바깥 서비스(지도 타일, 장소 이름)를 가짜 응답으로 바꾼다. 받은 이름 요청을 돌려준다. */
+/** 지도 타일 응답을 늦출 시간(밀리초). 테스트가 바꾼다. */
+let tileDelay = 0
+/** 장소 이름 요청이 온 시각. */
+let nameRequests: number[] = []
+
+/** 바깥 서비스(지도 타일, 장소 이름)를 가짜 응답으로 바꾼다. */
 async function stubServices(page: Page) {
-  const nameRequests: string[] = []
-  await page.route('https://tile.openstreetmap.org/**', (route) =>
-    route.fulfill({ contentType: 'image/png', body: blankTile, headers: { 'access-control-allow-origin': '*' } }),
-  )
+  tileDelay = 0
+  nameRequests = []
+  await page.route('https://tile.openstreetmap.org/**', async (route) => {
+    if (tileDelay > 0) await new Promise((resolve) => setTimeout(resolve, tileDelay))
+    await route.fulfill({ contentType: 'image/png', body: blankTile, headers: { 'access-control-allow-origin': '*' } })
+  })
   await page.route('https://nominatim.openstreetmap.org/**', (route) => {
     const url = new URL(route.request().url())
-    nameRequests.push(url.search)
+    nameRequests.push(Date.now())
     const latitude = Number(url.searchParams.get('lat'))
     // 남산 근처만 이름을 주고, 나머지는 이름 없는 응답을 준다.
     const address = Math.abs(latitude - 37.5512) < 0.001 ? { suburb: '가짜 남산동' } : {}
     return route.fulfill({ json: { address }, headers: { 'access-control-allow-origin': '*' } })
   })
-  return nameRequests
+}
+
+/** 샘플을 이름만 바꿔 count개로 늘린다(이름이 다르면 다른 사진으로 본다). 읽는 데 시간이 걸리게 하려는 것. */
+function manyCopies(directory: string, count: number): string[] {
+  mkdirSync(directory, { recursive: true })
+  return Array.from({ length: count }, (_, index) => {
+    const path = join(directory, `copy-${index}.jpg`)
+    copyFileSync(samples[index % samples.length], path)
+    return path
+  })
 }
 
 async function upload(page: Page, files: string[]) {
@@ -131,4 +148,87 @@ test('전부 지우면 처음 화면으로 돌아간다', async ({ page }) => {
   await page.getByRole('button', { name: '전부 지우기' }).click()
   await expect(page.getByTestId('stop-card')).toHaveCount(0)
   await expect(page.getByText('사진을 여기에 끌어다 놓으세요')).toBeVisible()
+})
+
+test('장소 이름은 머문 곳마다 한 번씩, 1초 넘게 띄워서 묻는다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  await expect.poll(() => nameRequests.length, { timeout: 15_000 }).toBe(5)
+  // 더 기다려도 다시 묻지 않는다.
+  await page.waitForTimeout(2500)
+  expect(nameRequests).toHaveLength(5)
+  const gaps = nameRequests.slice(1).map((time, index) => time - nameRequests[index])
+  expect(Math.min(...gaps)).toBeGreaterThanOrEqual(1000)
+})
+
+test('읽는 도중 전부 지우면, 읽던 사진이 되살아나지 않는다', async ({ page }, testInfo) => {
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  await upload(page, manyCopies(testInfo.outputPath('copies'), 400))
+  await expect(page.getByRole('status')).toContainText('사진을 읽는 중')
+  await page.getByRole('button', { name: '전부 지우기' }).click()
+
+  await expect(page.getByText('사진을 여기에 끌어다 놓으세요')).toBeVisible()
+  await expect(page.getByRole('status')).toHaveCount(0)
+  // 읽기가 끝날 만큼 기다려도 처음 화면 그대로다.
+  await page.waitForTimeout(3000)
+  await expect(page.getByTestId('stop-card')).toHaveCount(0)
+  await expect(page.getByText('사진을 여기에 끌어다 놓으세요')).toBeVisible()
+
+  // 지운 뒤 다시 올리면 정상으로 들어간다.
+  await upload(page, samples)
+  await expect(page.getByTestId('summary')).toContainText('6장')
+})
+
+test('이미지를 만드는 사이 도착한 장소 이름이 이미지에 들어간다', async ({ page }) => {
+  // 캔버스에 쓴 글자를 기록한다.
+  await page.addInitScript(() => {
+    const texts: string[] = []
+    ;(window as unknown as { drawnTexts: string[] }).drawnTexts = texts
+    const original = CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+      texts.push(text)
+      return original.call(this, text, ...rest)
+    }
+  })
+  await page.reload()
+  tileDelay = 4000
+  await upload(page, samples)
+  await expect(page.getByTestId('stop-card')).toHaveCount(5)
+  // 남산(세 번째)의 이름은 약 2초 뒤에 온다. 그 전에 저장을 누른다.
+  await expect(page.getByTestId('stop-card').nth(2)).toContainText('장소 3')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '이미지로 저장' }).click()
+  await download
+
+  const texts = await page.evaluate(() => (window as unknown as { drawnTexts: string[] }).drawnTexts)
+  expect(texts).toContain('가짜 남산동')
+  expect(texts).not.toContain('장소 3')
+  // 이름을 못 받은 곳은 누른 순간의 이름 그대로다.
+  expect(texts).toContain('장소 1')
+})
+
+test('올리는 영역 밖에 떨어뜨려도 사진을 받는다', async ({ page }) => {
+  await upload(page, samples.slice(0, 1))
+  await expect(page.getByTestId('summary')).toContainText('1장')
+  const bytes = readFileSync(samples[5]).toString('base64')
+  const prevented = await page.evaluate((base64) => {
+    const data = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([data], 't6-jamsil.jpg', { type: 'image/jpeg' }))
+    const event = new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true })
+    document.querySelector('.footer')!.dispatchEvent(event)
+    return event.defaultPrevented
+  }, bytes)
+  // 막지 않으면 브라우저가 그 사진 파일로 이동해 타임라인이 사라진다.
+  expect(prevented).toBe(true)
+  await expect(page.getByTestId('summary')).toContainText('2장')
+})
+
+test('읽지 못한 파일 안내는 다음에 올릴 때 지워진다', async ({ page }) => {
+  await upload(page, [join(fixtures, '..', 'timeline.spec.ts')])
+  await expect(page.getByText('읽지 못한 파일 1개')).toBeVisible()
+  await upload(page, samples)
+  await expect(page.getByTestId('summary')).toContainText('6장')
+  await expect(page.getByText('읽지 못한 파일')).toHaveCount(0)
 })

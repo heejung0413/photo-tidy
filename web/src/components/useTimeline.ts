@@ -27,8 +27,11 @@ export interface Timeline {
   title: (stop: TimelineStop) => string
   /** 직접 붙인 이름(이름 고치기 칸의 처음 값). */
   customName: (stop: TimelineStop) => string | null
-  /** 화면과 무관하게 지금 아는 이름(직접 붙인 이름 또는 받아 둔 이름). */
-  knownName: (stop: TimelineStop) => string | null
+  /**
+   * 부르는 순간에 아는 이름(직접 붙인 이름 또는 받아 둔 이름).
+   * 화면을 그린 뒤에 도착한 이름도 돌려주므로, 오래 걸리는 작업이 끝난 뒤에 불러도 된다.
+   */
+  latestName: (stop: TimelineStop) => string | null
   rename: (stop: TimelineStop, text: string) => void
   thumbnail: (photoId: string) => string | undefined
 }
@@ -49,6 +52,15 @@ export function useTimeline(): Timeline {
   const [placeNames, setPlaceNames] = useState(loadPlaceNames)
   /** 사진 id → 화면에 그릴 주소. */
   const thumbnails = useRef(new Map<string, string>())
+  /** "전부 지우기"를 누를 때마다 올라간다. 그 전에 읽기 시작한 사진을 버리는 데 쓴다. */
+  const generation = useRef(0)
+  /** 사진 묶음을 차례로 읽기 위한 줄. 앞 묶음이 끝나야 다음 묶음을 읽는다. */
+  const queue = useRef<Promise<void>>(Promise.resolve())
+  /** 화면을 그린 뒤에도 최신 값을 읽을 수 있게 둔다. */
+  const latestCustomNames = useRef(customNames)
+  useEffect(() => {
+    latestCustomNames.current = customNames
+  }, [customNames])
 
   const lookup = useRef<PlaceNameLookup | null>(null)
   if (lookup.current === null) {
@@ -84,31 +96,49 @@ export function useTimeline(): Timeline {
     }
   }, [stops])
 
-  const addFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return
-    setReading({ done: 0, total: files.length })
-    const added: TimelinePhoto[] = []
+  /** 사진 묶음 하나를 읽는다. 읽는 도중 "전부 지우기"를 누르면 읽은 것을 버린다. */
+  const readBatch = useCallback(async (files: File[]) => {
+    const started = generation.current
+    const added: { photo: TimelinePhoto; file: File }[] = []
+    const seen = new Set<string>()
     let skipped = 0
     let fileTime = 0
+    setReading({ done: 0, total: files.length })
     for (const [index, file] of files.entries()) {
       const result = await readPhoto(file)
+      if (generation.current !== started) return
       if (result === null) {
         skipped += 1
-      } else if (!thumbnails.current.has(result.photo.id)) {
+      } else if (!thumbnails.current.has(result.photo.id) && !seen.has(result.photo.id)) {
         // 같은 파일을 다시 올리면 한 번만 넣는다.
-        thumbnails.current.set(result.photo.id, URL.createObjectURL(file))
-        added.push(result.photo)
+        seen.add(result.photo.id)
+        added.push({ photo: result.photo, file })
         if (result.usedFileTime) fileTime += 1
       }
       setReading({ done: index + 1, total: files.length })
     }
-    setPhotos((current) => [...current, ...added])
-    setSkippedFiles((count) => count + skipped)
+    for (const { photo, file } of added) {
+      thumbnails.current.set(photo.id, URL.createObjectURL(file))
+    }
+    setPhotos((current) => [...current, ...added.map((item) => item.photo)])
+    // 읽지 못한 파일 안내는 방금 올린 묶음의 것만 보여 준다.
+    setSkippedFiles(skipped)
     setFileTimePhotos((count) => count + fileTime)
     setReading(null)
   }, [])
 
+  const addFiles = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return Promise.resolve()
+      // 여러 묶음을 연달아 올려도 진행 표시가 섞이지 않게 차례로 읽는다.
+      queue.current = queue.current.then(() => readBatch(files)).catch(() => {})
+      return queue.current
+    },
+    [readBatch],
+  )
+
   const clear = useCallback(() => {
+    generation.current += 1
     for (const url of thumbnails.current.values()) {
       URL.revokeObjectURL(url)
     }
@@ -116,6 +146,7 @@ export function useTimeline(): Timeline {
     setPhotos([])
     setSkippedFiles(0)
     setFileTimePhotos(0)
+    setReading(null)
   }, [])
 
   const number = useCallback((stop: TimelineStop) => order.get(stopId(stop)) ?? 0, [order])
@@ -123,6 +154,12 @@ export function useTimeline(): Timeline {
   const knownName = useCallback(
     (stop: TimelineStop) => customNames.name(stop) ?? (stop.center ? (placeNames[placeKey(stop.center)] ?? null) : null),
     [customNames, placeNames],
+  )
+
+  const latestName = useCallback(
+    (stop: TimelineStop) =>
+      latestCustomNames.current.name(stop) ?? (stop.center ? lookup.current!.cachedName(stop.center) : null),
+    [],
   )
 
   const title = useCallback(
@@ -154,7 +191,7 @@ export function useTimeline(): Timeline {
     number,
     title,
     customName: (stop) => customNames.name(stop),
-    knownName,
+    latestName,
     rename,
     thumbnail: (photoId) => thumbnails.current.get(photoId),
   }

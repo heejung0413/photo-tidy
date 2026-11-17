@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { DropZone } from './components/DropZone'
 import { StopList } from './components/StopList'
@@ -17,7 +17,22 @@ export default function App() {
   const [isSharing, setIsSharing] = useState(false)
   const [shareError, setShareError] = useState(false)
 
-  const { days, stops, title, number } = timeline
+  const { days, stops, title, number, addFiles } = timeline
+
+  // 올리는 영역 밖에 떨어뜨려도 받는다. 막지 않으면 브라우저가 그 사진 파일로 이동해 타임라인이 사라진다.
+  useEffect(() => {
+    const allow = (event: DragEvent) => event.preventDefault()
+    const drop = (event: DragEvent) => {
+      event.preventDefault()
+      void addFiles([...(event.dataTransfer?.files ?? [])])
+    }
+    window.addEventListener('dragover', allow)
+    window.addEventListener('drop', drop)
+    return () => {
+      window.removeEventListener('dragover', allow)
+      window.removeEventListener('drop', drop)
+    }
+  }, [addFiles])
   const hasPhotos = timeline.photoCount > 0
 
   const pins = useMemo<MapPin[]>(
@@ -46,7 +61,7 @@ export default function App() {
         title: '타임라인',
         subtitle: summary,
         thumbnail: timeline.thumbnail,
-        lateName: timeline.knownName,
+        lateName: timeline.latestName,
       })
       downloadBlob(blob, '타임라인.png')
     } catch {
@@ -86,7 +101,7 @@ export default function App() {
         )}
       </header>
 
-      <DropZone compact={hasPhotos} onFiles={(files) => void timeline.addFiles(files)} />
+      <DropZone compact={hasPhotos} onFiles={(files) => void addFiles(files)} />
 
       {timeline.reading && (
         <p className="notice" role="status">

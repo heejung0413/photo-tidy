@@ -35,6 +35,17 @@ describe('readPhoto', () => {
     expect(result!.photo.takenAt).toBe(new Date(2026, 10, 15, 14, 40, 0).getTime())
   })
 
+  test('남반구와 서반구 좌표는 음수로 읽는다', async () => {
+    const read = (name: string) =>
+      readPhoto(new File([readFileSync(join(import.meta.dirname, 'fixtures', name))], name, { type: 'image/jpeg' }))
+    const sydney = await read('sydney.jpg')
+    expect(sydney!.photo.coordinate!.latitude).toBeCloseTo(-33.8568, 4)
+    expect(sydney!.photo.coordinate!.longitude).toBeCloseTo(151.2153, 4)
+    const newYork = await read('newyork.jpg')
+    expect(newYork!.photo.coordinate!.latitude).toBeCloseTo(40.7128, 4)
+    expect(newYork!.photo.coordinate!.longitude).toBeCloseTo(-74.006, 4)
+  })
+
   test('정보가 없는 사진은 위치 없이, 파일 시각으로 넣는다', async () => {
     const file = new File([plainJPEG], 'plain.jpg', { type: 'image/jpeg', lastModified: 1_600_000_000_000 })
     const result = await readPhoto(file)
