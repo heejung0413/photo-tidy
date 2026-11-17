@@ -36,6 +36,10 @@ final class TimelineModel {
     private let library: PhotoLibrary
     private let namer = PlaceNamer()
     private var loadTask: Task<Void, Never>?
+    /// 지금 보고 있는 범위를 읽는 방법. 조용히 다시 읽을 때 쓴다.
+    private var current: (byDay: Bool, fetch: @Sendable () -> [TimelinePhoto])?
+    /// 다른 날이나 앨범을 열 때마다 올라간다.
+    private var loadCount = 0
     private var watcher: LibraryChangeWatcher?
     private var refreshTask: Task<Void, Never>?
 
@@ -101,12 +105,14 @@ final class TimelineModel {
         }
         growSampleAlbumLaterIfAsked()
         #endif
-        if watcher == nil {
+        // 처음 열 때만 화면을 새로 만든다. 탭에 돌아올 때는 바뀐 것이 있을 때만 고친다.
+        let isFirst = watcher == nil
+        if isFirst {
             watcher = LibraryChangeWatcher { [weak self] in
                 Task { @MainActor in self?.libraryDidChange() }
             }
         }
-        await reload()
+        await reload(quiet: !isFirst)
     }
 
     /// 사진첩 변경 알림은 짧은 시간에 여러 번 올 수 있어, 잠잠해진 뒤 한 번만 다시 읽는다.
@@ -115,12 +121,14 @@ final class TimelineModel {
         refreshTask = Task {
             try? await Task.sleep(nanoseconds: 500_000_000)
             if Task.isCancelled { return }
-            await reload()
+            await reload(quiet: true)
         }
     }
 
     /// 날짜·앨범 목록과 지금 보고 있는 범위를 다시 읽는다.
-    private func reload() async {
+    /// quiet면 보고 있는 내용이 실제로 달라졌을 때만 화면을 고친다. 사진첩 변경 알림은 즐겨찾기 표시나
+    /// 아이클라우드 동기화처럼 지금 화면과 무관한 일에도 오므로, 그때마다 화면을 새로 만들면 안 된다.
+    private func reload(quiet: Bool) async {
         let library = self.library
         (days, albums) = await Task.detached(priority: .userInitiated) {
             (library.photoDays(), library.albums())
@@ -128,14 +136,40 @@ final class TimelineModel {
         // 보던 앨범은 id로 다시 찾는다. 사진 수나 이름이 바뀌어도 같은 앨범이다.
         if let albumID {
             if let album = albums.first(where: { $0.id == albumID }) {
-                showAlbum(album)
+                if quiet {
+                    if source != .album(album) {
+                        source = .album(album)
+                    }
+                    await refreshIfChanged()
+                } else {
+                    showAlbum(album)
+                }
                 return
             }
             // 보던 앨범이 지워졌거나 비었다.
             stops = []
             sections = []
+            showDaily()
+            return
         }
-        showDaily()
+        if quiet, let day, days.contains(day) {
+            await refreshIfChanged()
+        } else {
+            showDaily()
+        }
+    }
+
+    /// 지금 보고 있는 범위를 조용히 다시 읽어, 머문 곳이 달라졌을 때만 화면을 고친다.
+    /// 달라진 것이 없으면 화면도, 진행 중인 장소 이름 받기도 건드리지 않는다.
+    private func refreshIfChanged() async {
+        // 화면을 읽는 중이면 그 읽기가 최신 내용을 가져온다.
+        guard let current, !isLoading else { return }
+        let started = loadCount
+        let result = await Self.build(byDay: current.byDay, current.fetch)
+        // 읽는 사이 다른 날이나 앨범으로 옮겼으면 버린다.
+        guard started == loadCount, result.stops != stops || result.sections != sections else { return }
+        loadTask?.cancel()
+        loadTask = Task { await apply(result) }
     }
 
     #if DEBUG
@@ -163,6 +197,8 @@ final class TimelineModel {
             show(last)
         } else {
             loadTask?.cancel()
+            loadCount += 1
+            current = nil
             source = .daily
             day = nil
             stops = []
@@ -201,31 +237,44 @@ final class TimelineModel {
 
     private func load(byDay: Bool, _ fetch: @escaping @Sendable () -> [TimelinePhoto]) {
         loadTask?.cancel()
+        loadCount += 1
+        current = (byDay, fetch)
         isLoading = true
         loadTask = Task {
-            // 사진이 많은 앨범에서 화면이 멈추지 않게, 묶는 계산도 화면 밖에서 한다.
-            let (newSections, newStops) = await Task.detached(priority: .userInitiated) {
-                let photos = fetch()
-                if byDay {
-                    let days = TimelineBuilder.days(photos)
-                    return (days, days.flatMap(\.stops))
-                }
-                return ([TimelineDay](), TimelineBuilder.stops(photos))
-            }.value
+            let result = await Self.build(byDay: byDay, fetch)
             if Task.isCancelled { return }
-            sections = newSections
-            stops = newStops
-            // 다시 읽어도 그대로인 머문 곳은 이름을 지우지 않는다(이름이 잠깐 "장소 N"으로 바뀌지 않게).
-            let ids = Set(newStops.map(\.id))
-            names = names.filter { ids.contains($0.key) }
-            isLoading = false
-            for stop in stops {
-                guard let center = stop.center else { continue }
-                let name = await namer.name(for: center)
-                if Task.isCancelled { return }
-                if let name {
-                    names[stop.id] = name
-                }
+            await apply(result)
+        }
+    }
+
+    /// 사진을 읽어 머문 곳으로 묶는다. 사진이 많은 앨범에서 화면이 멈추지 않게 화면 밖에서 한다.
+    private nonisolated static func build(
+        byDay: Bool, _ fetch: @escaping @Sendable () -> [TimelinePhoto]
+    ) async -> (sections: [TimelineDay], stops: [TimelineStop]) {
+        await Task.detached(priority: .userInitiated) {
+            let photos = fetch()
+            if byDay {
+                let days = TimelineBuilder.days(photos)
+                return (days, days.flatMap(\.stops))
+            }
+            return ([TimelineDay](), TimelineBuilder.stops(photos))
+        }.value
+    }
+
+    /// 읽은 내용을 화면에 올리고 장소 이름을 받아 온다.
+    private func apply(_ result: (sections: [TimelineDay], stops: [TimelineStop])) async {
+        sections = result.sections
+        stops = result.stops
+        // 다시 읽어도 그대로인 머문 곳은 이름을 지우지 않는다(이름이 잠깐 "장소 N"으로 바뀌지 않게).
+        let ids = Set(result.stops.map(\.id))
+        names = names.filter { ids.contains($0.key) }
+        isLoading = false
+        for stop in stops {
+            guard let center = stop.center else { continue }
+            let name = await namer.name(for: center)
+            if Task.isCancelled { return }
+            if let name {
+                names[stop.id] = name
             }
         }
     }

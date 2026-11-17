@@ -241,5 +241,6 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.append(link)
   link.click()
   link.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  // 내려받기 전에 확인 창을 띄우는 브라우저(아이폰 사파리 등)가 있어, 사용자가 누를 시간을 넉넉히 둔 뒤에 푼다.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

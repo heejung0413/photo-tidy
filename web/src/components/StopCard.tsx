@@ -19,7 +19,18 @@ function Thumbnail({ src }: { src: string | undefined }) {
     // 브라우저가 그리지 못하는 형식(HEIC 등).
     return <div className="thumbnail empty" role="img" aria-label="미리 볼 수 없는 사진" />
   }
-  return <img className="thumbnail" src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+  // 끌어서 페이지에 놓으면 새 사진으로 올라가므로, 썸네일은 끌 수 없게 한다.
+  return (
+    <img
+      className="thumbnail"
+      src={src}
+      alt=""
+      draggable={false}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  )
 }
 
 export function StopCard({ stop, number, title, customName, thumbnail, onFocus, onRename }: Props) {

@@ -33,15 +33,31 @@ export default function App() {
 
   // 올리는 영역 밖에 떨어뜨려도 받는다. 막지 않으면 브라우저가 그 사진 파일로 이동해 타임라인이 사라진다.
   useEffect(() => {
+    // 페이지 안에서 끌기 시작한 것(지도 그림, 링크 등)은 밖에서 가져온 사진이 아니므로 받지 않는다.
+    let fromThisPage = false
+    const started = () => {
+      fromThisPage = true
+    }
+    const ended = () => {
+      fromThisPage = false
+    }
     const allow = (event: DragEvent) => event.preventDefault()
     const drop = (event: DragEvent) => {
       event.preventDefault()
+      if (fromThisPage) {
+        fromThisPage = false
+        return
+      }
       // 폴더를 떨어뜨리면 그 안의 사진을 꺼낸다.
       void filesFromDrop(event.dataTransfer).then(addFiles)
     }
+    window.addEventListener('dragstart', started)
+    window.addEventListener('dragend', ended)
     window.addEventListener('dragover', allow)
     window.addEventListener('drop', drop)
     return () => {
+      window.removeEventListener('dragstart', started)
+      window.removeEventListener('dragend', ended)
       window.removeEventListener('dragover', allow)
       window.removeEventListener('drop', drop)
     }

@@ -413,3 +413,110 @@ test('좁은 화면에서 머문 곳을 누르면 지도가 보이는 곳으로 
   await last.locator('.stop-main').click()
   await expect(page.getByTestId('map')).toBeInViewport({ ratio: 0.9 })
 })
+
+// ---- 두 번째 코드 리뷰의 나머지 ----
+
+/** 지도에서 1번 핀과 2번 핀 사이의 화면 거리. 지도를 확대하면 커진다. */
+async function pinSpacing(page: Page): Promise<number> {
+  const first = await page.locator('.map-pin').nth(0).boundingBox()
+  const second = await page.locator('.map-pin').nth(1).boundingBox()
+  return Math.hypot(first!.x - second!.x, first!.y - second!.y)
+}
+
+test('지도를 직접 확대한 뒤에는 창 크기가 바뀌어도 전체 범위로 돌아가지 않는다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.locator('.map-pin')).toHaveCount(5)
+  await page.waitForTimeout(500)
+  const before = await pinSpacing(page)
+  await page.locator('.leaflet-control-zoom-in').click()
+  await page.waitForTimeout(600)
+  await page.locator('.leaflet-control-zoom-in').click()
+  await page.waitForTimeout(600)
+  const zoomed = await pinSpacing(page)
+  expect(zoomed).toBeGreaterThan(before * 3)
+
+  await page.setViewportSize({ width: 1180, height: 860 })
+  await page.waitForTimeout(800)
+  expect(await pinSpacing(page)).toBeCloseTo(zoomed, 0)
+})
+
+test('창 크기가 바뀌면, 직접 건드리지 않은 지도는 핀이 모두 보이게 다시 맞춘다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.locator('.map-pin')).toHaveCount(5)
+  await page.setViewportSize({ width: 500, height: 800 })
+  await page.waitForTimeout(800)
+  const map = (await page.getByTestId('map').boundingBox())!
+  for (let index = 0; index < 5; index += 1) {
+    const pin = (await page.locator('.map-pin').nth(index).boundingBox())!
+    expect(pin.x).toBeGreaterThanOrEqual(map.x)
+    expect(pin.x + pin.width).toBeLessThanOrEqual(map.x + map.width)
+  }
+})
+
+test('장소 이름이 도착해도 지도의 핀을 새로 만들지 않는다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.locator('.map-pin')).toHaveCount(5)
+  // 처음 그려진 핀에 표시를 해 둔다.
+  await page.locator('.map-pin').evaluateAll((pins) => pins.forEach((pin) => pin.setAttribute('data-first', 'yes')))
+  // 세 번째 머문 곳의 이름이 도착할 때까지 기다린다.
+  await expect(page.getByTestId('stop-card').nth(2)).toContainText('가짜 남산동', { timeout: 15_000 })
+  await expect(page.locator('.map-pin[data-first="yes"]')).toHaveCount(5)
+  // 핀의 이름은 새 이름으로 바뀌어 있다.
+  await expect(page.locator('.map-pin').nth(2)).toHaveAttribute('title', '가짜 남산동')
+})
+
+test('저장한 이미지의 주소는 몇 초 뒤에도 살아 있다', async ({ page }) => {
+  // 내려받기 링크의 주소를 기록한다.
+  await page.addInitScript(() => {
+    const original = HTMLAnchorElement.prototype.click
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) (window as unknown as { downloadHref: string }).downloadHref = this.href
+      return original.call(this)
+    }
+  })
+  await page.reload()
+  await upload(page, samples)
+  await expect(page.locator('img.thumbnail')).toHaveCount(6)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '이미지로 저장' }).click()
+  await download
+  // 내려받기 전에 확인 창을 띄우는 브라우저에서는 사용자가 누를 때까지 주소가 살아 있어야 한다.
+  await page.waitForTimeout(4000)
+  const alive = await page.evaluate(async () => {
+    try {
+      const response = await fetch((window as unknown as { downloadHref: string }).downloadHref)
+      return (await response.blob()).size > 1000
+    } catch {
+      return false
+    }
+  })
+  expect(alive).toBe(true)
+})
+
+test('페이지 안의 썸네일을 끌었다 놓아도 새 사진으로 올라가지 않는다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.locator('img.thumbnail')).toHaveCount(6)
+  await expect(page.locator('img.thumbnail').first()).toHaveAttribute('draggable', 'false')
+  const bytes = readFileSync(samples[0]).toString('base64')
+  await page.evaluate((base64) => {
+    const data = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([data], 'dragged-thumbnail.jpg', { type: 'image/jpeg' }))
+    // 페이지 안에서 끌기 시작해 페이지에 놓는다.
+    document.querySelector('img.thumbnail')!.dispatchEvent(new DragEvent('dragstart', { dataTransfer: transfer, bubbles: true }))
+    document.querySelector('.footer')!.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }))
+    document.querySelector('img.thumbnail')!.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
+  }, bytes)
+  await page.waitForTimeout(800)
+  await expect(page.getByTestId('summary')).toContainText('6장')
+
+  // 그 뒤에 밖에서 끌어온 파일은 정상으로 받는다.
+  const outside = readFileSync(join(fixtures, '..', '..', 'src', 'services', 'fixtures', 'sydney.jpg')).toString('base64')
+  await page.evaluate((base64) => {
+    const data = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([data], 'sydney.jpg', { type: 'image/jpeg' }))
+    document.querySelector('.footer')!.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }))
+  }, outside)
+  await expect(page.getByTestId('summary')).toContainText('7장')
+})
