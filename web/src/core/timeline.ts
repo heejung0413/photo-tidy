@@ -22,6 +22,24 @@ export function distance(a: Coordinate, b: Coordinate): number {
   return 2 * earthRadius * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
+/**
+ * 경도의 평균. 날짜변경선(±180도)을 사이에 둔 값들도 가까운 쪽으로 모아 평균 낸다.
+ * (179.9와 -179.9의 평균은 0이 아니라 180이다.)
+ */
+function meanLongitude(longitudes: number[]): number {
+  const base = longitudes[0]
+  const sum = longitudes.reduce((total, longitude) => {
+    let offset = longitude - base
+    if (offset > 180) offset -= 360
+    if (offset < -180) offset += 360
+    return total + offset
+  }, 0)
+  const mean = base + sum / longitudes.length
+  if (mean > 180) return mean - 360
+  if (mean < -180) return mean + 360
+  return mean
+}
+
 /** 사진을 시각순으로 보며, 현재 머문 곳 중심에서 radius를 벗어나면 새 머문 곳을 시작한다. */
 export function stops(photos: TimelinePhoto[], radius: number = Tuning.stopRadius): TimelineStop[] {
   const result: TimelineStop[] = []
@@ -32,7 +50,7 @@ export function stops(photos: TimelinePhoto[], radius: number = Tuning.stopRadiu
     if (located.length === 0) return null
     return {
       latitude: located.reduce((sum, c) => sum + c.latitude, 0) / located.length,
-      longitude: located.reduce((sum, c) => sum + c.longitude, 0) / located.length,
+      longitude: meanLongitude(located.map((c) => c.longitude)),
     }
   }
   const flush = () => {

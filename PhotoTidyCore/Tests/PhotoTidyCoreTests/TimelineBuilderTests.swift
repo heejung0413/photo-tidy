@@ -123,6 +123,22 @@ final class TimelineBuilderTests: XCTestCase {
         XCTAssertEqual(TimelineBuilder.distance(seoul, namsan), 6_010, accuracy: 60)
     }
 
+    /// 날짜변경선(경도 180도)을 사이에 둔 사진도 한 곳으로 묶고, 중심은 그 근처다.
+    func testStopAcrossTheAntimeridianKeepsItsCenterNearby() {
+        func at(_ id: String, _ t: TimeInterval, _ longitude: Double) -> TimelinePhoto {
+            TimelinePhoto(id: id, takenAt: Date(timeIntervalSinceReferenceDate: t),
+                          coordinate: Coordinate(latitude: 0, longitude: longitude))
+        }
+        // 적도에서 경도 0.001도는 약 111m.
+        let stops = TimelineBuilder.stops([at("a", 0, 179.9995), at("b", 60, -179.9995), at("c", 120, 179.9992)],
+                                          radius: 200)
+        XCTAssertEqual(ids(stops), [["a", "b", "c"]])
+        let longitude = abs(stops[0].center?.longitude ?? 0)
+        // 경도를 그냥 평균 내면 60도쯤이 된다.
+        XCTAssertGreaterThan(longitude, 179.99)
+        XCTAssertLessThanOrEqual(longitude, 180)
+    }
+
     func testStopIdIsFirstPhotoId() {
         let stops = TimelineBuilder.stops([tp("late", at: 60, 37.0), tp("early", at: 0, 37.0)])
         XCTAssertEqual(stops.map(\.id), ["early"])

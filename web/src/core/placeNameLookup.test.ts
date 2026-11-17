@@ -16,7 +16,7 @@ function fakeService(names: Record<string, string>) {
     state.calls.push(coordinate)
     if (state.busy) {
       state.overlapped = true
-      return null
+      throw new Error('요청이 겹쳤다')
     }
     state.busy = true
     await tick()
@@ -63,14 +63,101 @@ describe('PlaceNameLookup', () => {
   })
 
   test('실패는 기억하지 않아 다시 물을 수 있다', async () => {
-    const { state, lookup } = fakeService({})
-    const names = new PlaceNameLookup({ cache: {}, lookup })
+    let online = false
+    const names = new PlaceNameLookup({
+      cache: {},
+      lookup: async () => {
+        if (!online) throw new Error('인터넷 없음')
+        return '세종로'
+      },
+    })
 
     expect(await names.name(palace)).toBeNull()
     expect(names.cachedName(palace)).toBeNull()
 
-    state.names = allNames()
+    online = true
     expect(await names.name(palace)).toBe('세종로')
+  })
+
+  test('이름이 없다는 답은 기억해서 다시 묻지 않는다', async () => {
+    const { state, lookup } = fakeService({})
+    const saved: Record<string, string>[] = []
+    const names = new PlaceNameLookup({ cache: {}, lookup, onChange: (cache) => saved.push({ ...cache }) })
+
+    expect(await names.name(palace)).toBeNull()
+    expect(await names.name(palace)).toBeNull()
+
+    expect(state.calls).toHaveLength(1)
+    // 이름이 없다는 것은 저장하지 않는다. 다음에 방문하면 한 번 다시 묻는다.
+    expect(saved).toEqual([])
+    expect(names.cachedName(palace)).toBeNull()
+  })
+
+  describe('서비스가 계속 실패할 때', () => {
+    function failing() {
+      const state = { time: 0, calls: 0, fail: true }
+      const names = new PlaceNameLookup({
+        cache: {},
+        maxFailures: 3,
+        pauseAfterFailures: 60_000,
+        now: () => state.time,
+        lookup: async () => {
+          state.calls += 1
+          if (state.fail) throw new Error('막힘')
+          return '이름'
+        },
+      })
+      return { state, names }
+    }
+    const places = Array.from({ length: 8 }, (_, i) => ({ latitude: 37 + i * 0.01, longitude: 127 }))
+
+    test('연달아 세 번 실패하면 쉬는 동안 묻지 않는다', async () => {
+      const { state, names } = failing()
+      for (const place of places) {
+        expect(await names.name(place)).toBeNull()
+      }
+      expect(state.calls).toBe(3)
+    })
+
+    test('쉬는 시간이 지나면 다시 묻는다', async () => {
+      const { state, names } = failing()
+      for (const place of places.slice(0, 4)) await names.name(place)
+      expect(state.calls).toBe(3)
+
+      state.time = 59_999
+      await names.name(places[4])
+      expect(state.calls).toBe(3)
+
+      state.time = 60_000
+      state.fail = false
+      expect(await names.name(places[4])).toBe('이름')
+      expect(state.calls).toBe(4)
+    })
+
+    test('중간에 성공하면 실패 횟수를 다시 센다', async () => {
+      const { state, names } = failing()
+      await names.name(places[0])
+      await names.name(places[1])
+      state.fail = false
+      await names.name(places[2])
+      state.fail = true
+      await names.name(places[3])
+      await names.name(places[4])
+      // 실패 2 + 성공 1 + 실패 2. 아직 쉬지 않는다.
+      expect(state.calls).toBe(5)
+      await names.name(places[5])
+      await names.name(places[6])
+      expect(state.calls).toBe(6)
+    })
+
+    test('쉬는 동안에도 기억한 이름은 돌려준다', async () => {
+      const { state, names } = failing()
+      state.fail = false
+      await names.name(places[0])
+      state.fail = true
+      for (const place of places.slice(1, 5)) await names.name(place)
+      expect(await names.name(places[0])).toBe('이름')
+    })
   })
 
   test('서비스가 오류를 던져도 실패로 처리하고 다음 요청을 이어 간다', async () => {

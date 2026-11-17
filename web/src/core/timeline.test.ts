@@ -91,6 +91,18 @@ describe('stops', () => {
     expect(result.map(stopId)).toEqual(['early'])
   })
 
+  test('날짜변경선(경도 180도)을 사이에 둔 사진도 한 곳으로 묶고, 중심은 그 근처다', () => {
+    // 적도에서 경도 0.001도는 약 111m. 두 사진은 약 111m 떨어져 있다.
+    const east: TimelinePhoto = { id: 'a', takenAt: REF, coordinate: { latitude: 0, longitude: 179.9995 } }
+    const west: TimelinePhoto = { id: 'b', takenAt: REF + 60_000, coordinate: { latitude: 0, longitude: -179.9995 } }
+    const near: TimelinePhoto = { id: 'c', takenAt: REF + 120_000, coordinate: { latitude: 0, longitude: 179.9992 } }
+    const result = stops([east, west, near], 200)
+    expect(ids(result)).toEqual([['a', 'b', 'c']])
+    // 경도를 그냥 평균 내면 60도쯤이 된다. 실제 중심은 180도 바로 옆이다.
+    expect(Math.abs(result[0].center!.longitude)).toBeGreaterThan(179.99)
+    expect(Math.abs(result[0].center!.longitude)).toBeLessThanOrEqual(180)
+  })
+
   test('기본 반경은 200m', () => {
     // 위도 0.0017도 ≈ 189m, 0.0019도 ≈ 211m.
     expect(stops([tp('a', 0, 37.0), tp('b', 60, 37.0017)])).toHaveLength(1)

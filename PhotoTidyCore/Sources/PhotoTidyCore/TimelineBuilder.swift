@@ -61,6 +61,22 @@ public enum TimelineBuilder {
         return 2 * earthRadius * asin(min(1, sqrt(h)))
     }
 
+    /// 경도의 평균. 날짜변경선(±180도)을 사이에 둔 값들도 가까운 쪽으로 모아 평균 낸다.
+    /// (179.9와 -179.9의 평균은 0이 아니라 180이다.) longitudes는 비어 있지 않아야 한다.
+    static func meanLongitude(_ longitudes: [Double]) -> Double {
+        let base = longitudes[0]
+        let sum = longitudes.reduce(0.0) { total, longitude in
+            var offset = longitude - base
+            if offset > 180 { offset -= 360 }
+            if offset < -180 { offset += 360 }
+            return total + offset
+        }
+        let mean = base + sum / Double(longitudes.count)
+        if mean > 180 { return mean - 360 }
+        if mean < -180 { return mean + 360 }
+        return mean
+    }
+
     /// 사진을 시각순으로 보며, 현재 머문 곳 중심에서 radius를 벗어나면 새 머문 곳을 시작한다.
     public static func stops(_ photos: [TimelinePhoto], radius: Double = Tuning.stopRadius) -> [TimelineStop] {
         var result: [TimelineStop] = []
@@ -71,7 +87,7 @@ public enum TimelineBuilder {
             guard !located.isEmpty else { return nil }
             let count = Double(located.count)
             return Coordinate(latitude: located.reduce(0) { $0 + $1.latitude } / count,
-                              longitude: located.reduce(0) { $0 + $1.longitude } / count)
+                              longitude: meanLongitude(located.map(\.longitude)))
         }
         func flush() {
             guard !current.isEmpty else { return }

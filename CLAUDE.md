@@ -27,6 +27,8 @@ Photo Tidy: 아이폰 사진첩의 비슷한 사진 정리 + 하루 타임라인
 - 웹 버전은 `web/`(Vite + React + TypeScript, 타임라인만). 판단 규칙은 `web/src/core/`에 두고 브라우저 기능을 쓰지 않는다. 확인은 `web/`에서 `npm test`(Vitest) · `npm run e2e`(Playwright, 시스템 크롬, 타일·이름 요청은 가짜 응답) · `npm run build`(타입 검사 포함). 타임라인 규칙을 고치면 Swift(`PhotoTidyCore`)와 TypeScript(`web/src/core`) 양쪽을 같이 고칠 것 — 대응표는 `llm-wiki/web.md`.
 - 웹 프로젝트는 `erasableSyntaxOnly`라 `enum`과 생성자 매개변수 속성(`constructor(private x)`)을 쓸 수 없다. Vitest는 타입 검사를 하지 않으므로 테스트가 통과해도 `npx tsc -b`를 따로 돌릴 것.
 - 웹(React)에서 오래 걸리는 작업(사진 읽기, 공유 이미지 만들기)이 끝난 뒤에 쓰는 값은 버튼을 누른 때의 값이 아니라 부르는 순간의 값이어야 한다. 2026-11-17 검토에서 "읽는 중 지우면 사진이 되살아남"과 "늦게 온 이름이 이미지에 안 들어감"이 이 유형이었다(`useTimeline`의 `generation`, `latestName`). 캔버스에 쓴 글자는 화면 테스트에서 `fillText`를 감싸 기록해 확인한다.
+- 웹의 이름 받기 함수(`reverseGeocode`)는 "이름 없음"이면 `null`을 돌려주고 "요청 실패"면 오류를 던진다. 둘을 섞지 말 것 — `PlaceNameLookup`이 이름 없는 곳은 다시 묻지 않고, 실패가 3번 이어지면 1분 쉬는 데 이 구분을 쓴다.
+- 웹 화면과 공유 이미지에는 원본 사진이 아니라 작게 줄인 썸네일(`makeThumbnail`, 짧은 변 264px)만 올린다. 원본 `File`로 `createObjectURL`을 만들어 `<img>`에 넣지 말 것.
 - 장소 이름 서비스(Nominatim)는 1초에 1번만 허용한다. `PlaceNameLookup`의 `minInterval`을 거치지 않고 직접 부르지 말 것. 실제 응답에서 동 이름은 `address.suburb`에 온다(2026-11-17 확인).
 - 실제 아이폰 설치 진행 상태(2026-11-17): Xcode에 Apple 계정 로그인됨(Personal Team), `project.yml`에 `DEVELOPMENT_TEAM`을 넣었으나 **미커밋**(설치 성공을 확인한 뒤 커밋하기로 함). 아이폰(iPhone 15, iOS 26.6.1)은 연결·페어링됐지만 **개발자 모드가 꺼져 있어** 빌드가 기기를 못 쓴다 — 사용자가 설정 > 개인정보 보호 및 보안 > 개발자 모드를 켜야 한다. 기기 지정은 `xcrun devicectl list devices`의 Identifier가 아니라 xcodebuild가 보여 주는 id(`xcodebuild -showdestinations`의 `platform:iOS` 줄)를 `-destination "id=..."`에 쓸 것. Xcode는 26.2라 iOS 26.6 지원 여부는 미확인.
 - 배경 지식은 `llm-wiki/`(시작은 `llm-wiki/index.md`, 운영 규칙은 `llm-wiki/README.md`)에 있다. 기능·결정이 바뀌면 관련 페이지를 고치고 `llm-wiki/log.md`에 한 줄 추가할 것.

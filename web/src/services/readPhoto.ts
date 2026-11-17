@@ -31,7 +31,10 @@ export async function readPhoto(file: File): Promise<ReadResult | null> {
   let coordinate: TimelinePhoto['coordinate'] = null
   let takenAt: number | null = null
   try {
-    const data = await exifr.parse(await file.arrayBuffer(), {
+    // 브라우저에서는 파일을 그대로 넘겨 필요한 앞부분만 읽게 한다(큰 사진 전체를 메모리에 올리지 않는다).
+    // 브라우저 밖(테스트)에는 파일을 조금씩 읽는 기능이 없어 통째로 읽는다.
+    const input = typeof FileReader === 'undefined' ? await file.arrayBuffer() : file
+    const data = await exifr.parse(input, {
       gps: true,
       pick: ['DateTimeOriginal', 'CreateDate', 'GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef'],
     })

@@ -114,6 +114,60 @@ test('장소 이름을 고치면 바뀌고, 다시 방문해도 남는다', asyn
   await expect(again).toContainText('장소 1')
 })
 
+test('썸네일은 원본이 아니라 작게 줄인 그림이다', async ({ page }) => {
+  await upload(page, samples)
+  await expect(page.locator('img.thumbnail')).toHaveCount(6)
+  const sizes = await page.locator('img.thumbnail').evaluateAll((images) =>
+    images.map((image) => {
+      const { naturalWidth, naturalHeight } = image as HTMLImageElement
+      return Math.min(naturalWidth, naturalHeight)
+    }),
+  )
+  // 샘플 원본은 1200×900. 짧은 변을 264로 줄인다.
+  expect(sizes).toEqual([264, 264, 264, 264, 264, 264])
+})
+
+test('저장한 이미지에 지도의 핀·선과 사진이 그려져 있다', async ({ page }, testInfo) => {
+  await upload(page, samples)
+  await expect(page.locator('img.thumbnail')).toHaveCount(6)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: '이미지로 저장' }).click()
+  const path = testInfo.outputPath('content.png')
+  await (await download).saveAs(path)
+
+  const result = await page.evaluate(async (url) => {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    const pixel = (x: number, y: number) => [...context.getImageData(x, y, 1, 1).data.slice(0, 3)]
+    // 지도 영역(위쪽 여백 48 + 머리말 110부터 높이 560)에서 강조색 픽셀을 센다.
+    const map = context.getImageData(48, 158, 984, 560).data
+    let accent = 0
+    for (let i = 0; i < map.length; i += 4) {
+      if (Math.abs(map[i] - 13) < 12 && Math.abs(map[i + 1] - 133) < 12 && Math.abs(map[i + 2] - 122) < 12) accent += 1
+    }
+    // 첫 머문 곳(주황 사진)과 두 번째 머문 곳(초록 사진 2장)의 썸네일 가운데.
+    return { accent, first: pixel(142, 984), second: pixel(142, 984 + 252), secondNext: pixel(142 + 144, 984 + 252) }
+  }, `data:image/png;base64,${readFileSync(path).toString('base64')}`)
+
+  // 핀 5개와 경로 선 3개.
+  expect(result.accent).toBeGreaterThan(3000)
+  const [r1, g1, b1] = result.first
+  expect(r1).toBeGreaterThan(200)
+  expect(g1).toBeGreaterThan(100)
+  expect(g1).toBeLessThan(180)
+  expect(b1).toBeLessThan(100)
+  for (const [r, g, b] of [result.second, result.secondNext]) {
+    expect(g).toBeGreaterThan(r + 50)
+    expect(g).toBeGreaterThan(b + 50)
+  }
+})
+
 test('이미지로 저장하면 PNG를 내려받는다', async ({ page }, testInfo) => {
   await upload(page, samples)
   await expect(page.getByTestId('stop-card')).toHaveCount(5)

@@ -8,6 +8,7 @@ import type { TimelineDay, TimelinePhoto, TimelineStop } from '../core/types'
 import { reverseGeocode } from '../services/nominatim'
 import { readPhoto } from '../services/readPhoto'
 import { loadJSON, saveJSON, STORAGE_KEYS } from '../services/storage'
+import { makeThumbnail } from '../services/thumbnails'
 
 export interface Timeline {
   days: TimelineDay[]
@@ -33,7 +34,10 @@ export interface Timeline {
    */
   latestName: (stop: TimelineStop) => string | null
   rename: (stop: TimelineStop, text: string) => void
+  /** 작게 줄인 그림의 주소. 아직 만들지 못했거나 브라우저가 그리지 못하는 형식이면 undefined. */
   thumbnail: (photoId: string) => string | undefined
+  /** 부르는 순간까지 만들어진 썸네일. 오래 걸리는 작업이 끝난 뒤에 불러도 된다. */
+  latestThumbnail: (photoId: string) => string | undefined
 }
 
 function loadPlaceNames(): Record<string, string> {
@@ -50,8 +54,12 @@ export function useTimeline(): Timeline {
   const [customNames, setCustomNames] = useState(() => CustomPlaceNames.fromJSON(loadJSON(STORAGE_KEYS.customNames, [])))
   /** 받아 온 이름. placeKey → 이름. */
   const [placeNames, setPlaceNames] = useState(loadPlaceNames)
-  /** 사진 id → 화면에 그릴 주소. */
-  const thumbnails = useRef(new Map<string, string>())
+  /** 사진 id → 작게 줄인 그림의 주소. 사진을 올린 뒤 하나씩 만들어 채운다. */
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
+  /** 만든 썸네일 주소 전부(지울 때 풀기 위해, 그리고 최신 값을 읽기 위해). */
+  const thumbnailURLs = useRef(new Map<string, string>())
+  /** 지금 들어 있는 사진 id. 같은 파일을 다시 올렸는지 보는 데 쓴다. */
+  const knownIDs = useRef(new Set<string>())
   /** "전부 지우기"를 누를 때마다 올라간다. 그 전에 읽기 시작한 사진을 버리는 데 쓴다. */
   const generation = useRef(0)
   /** 사진 묶음을 차례로 읽기 위한 줄. 앞 묶음이 끝나야 다음 묶음을 읽는다. */
@@ -109,7 +117,7 @@ export function useTimeline(): Timeline {
       if (generation.current !== started) return
       if (result === null) {
         skipped += 1
-      } else if (!thumbnails.current.has(result.photo.id) && !seen.has(result.photo.id)) {
+      } else if (!knownIDs.current.has(result.photo.id) && !seen.has(result.photo.id)) {
         // 같은 파일을 다시 올리면 한 번만 넣는다.
         seen.add(result.photo.id)
         added.push({ photo: result.photo, file })
@@ -117,14 +125,35 @@ export function useTimeline(): Timeline {
       }
       setReading({ done: index + 1, total: files.length })
     }
-    for (const { photo, file } of added) {
-      thumbnails.current.set(photo.id, URL.createObjectURL(file))
+    for (const { photo } of added) {
+      knownIDs.current.add(photo.id)
     }
     setPhotos((current) => [...current, ...added.map((item) => item.photo)])
     // 읽지 못한 파일 안내는 방금 올린 묶음의 것만 보여 준다.
     setSkippedFiles(skipped)
     setFileTimePhotos((count) => count + fileTime)
     setReading(null)
+
+    // 썸네일은 사진을 화면에 올린 뒤 하나씩 만든다. 여러 장을 한꺼번에 풀면 메모리를 많이 쓴다.
+    let ready: Record<string, string> = {}
+    const flush = () => {
+      const batch = ready
+      ready = {}
+      setThumbnails((current) => ({ ...current, ...batch }))
+    }
+    for (const { photo, file } of added) {
+      const url = await makeThumbnail(file)
+      if (generation.current !== started) {
+        if (url) URL.revokeObjectURL(url)
+        return
+      }
+      if (url) {
+        thumbnailURLs.current.set(photo.id, url)
+        ready[photo.id] = url
+        if (Object.keys(ready).length >= 8) flush()
+      }
+    }
+    flush()
   }, [])
 
   const addFiles = useCallback(
@@ -139,10 +168,12 @@ export function useTimeline(): Timeline {
 
   const clear = useCallback(() => {
     generation.current += 1
-    for (const url of thumbnails.current.values()) {
+    for (const url of thumbnailURLs.current.values()) {
       URL.revokeObjectURL(url)
     }
-    thumbnails.current.clear()
+    thumbnailURLs.current.clear()
+    knownIDs.current.clear()
+    setThumbnails({})
     setPhotos([])
     setSkippedFiles(0)
     setFileTimePhotos(0)
@@ -161,6 +192,8 @@ export function useTimeline(): Timeline {
       latestCustomNames.current.name(stop) ?? (stop.center ? lookup.current!.cachedName(stop.center) : null),
     [],
   )
+
+  const latestThumbnail = useCallback((photoId: string) => thumbnailURLs.current.get(photoId), [])
 
   const title = useCallback(
     (stop: TimelineStop) => {
@@ -193,6 +226,7 @@ export function useTimeline(): Timeline {
     customName: (stop) => customNames.name(stop),
     latestName,
     rename,
-    thumbnail: (photoId) => thumbnails.current.get(photoId),
+    thumbnail: (photoId) => thumbnails[photoId],
+    latestThumbnail,
   }
 }

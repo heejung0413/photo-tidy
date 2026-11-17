@@ -60,7 +60,7 @@ export default function App() {
         outline,
         title: '타임라인',
         subtitle: summary,
-        thumbnail: timeline.thumbnail,
+        thumbnail: timeline.latestThumbnail,
         lateName: timeline.latestName,
       })
       downloadBlob(blob, '타임라인.png')
