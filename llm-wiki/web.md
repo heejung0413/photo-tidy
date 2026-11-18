@@ -107,6 +107,22 @@ Vite + React + TypeScript, Leaflet + 오픈스트리트맵 타일, `exifr`(사�
 
 폴더가 원인이 아니었을 수도 있다. 사용자가 본 증상을 확인해야 한다(실제 큰 HEIC, 실제 이름 서비스의 요청 제한, 공개 사이트 쪽 문제 등은 재현해 보지 못했다).
 
+## 화면 테스트 구조 (2026-11-18)
+
+설계: `docs/superpowers/specs/2026-11-18-web-e2e-structure-design.md`. 쓰는 법과 파일 표는 `web/README.md`.
+
+한 파일(`timeline.spec.ts`, 522줄)에 있던 25개를 기능별 5개 파일과 `e2e/support/`의 공용 도우미로 나눴다. 테스트 이름과 검증 내용은 그대로다.
+
+- 테스트는 `@playwright/test`가 아니라 `e2e/support/test.ts`에서 `test`, `expect`를 가져온다. 시작할 때 이미 가짜 서비스가 설치돼 있고 첫 화면이 열려 있다.
+- 가짜 응답 상태는 파일 전역 변수가 아니라 테스트마다 새로 만드는 `FakeServices`에 있다(`services.tileDelay`, `services.nameRequests`, `services.nameReply`).
+- `e2e/`와 `playwright.config.ts`도 타입 검사한다(`tsconfig.e2e.json`). 켜자마자 테스트 코드의 타입 오류 1건이 나왔다.
+- 새 시나리오 3개: 위치 없는 사진, 촬영 시각 없는 사진, 잘못된 좌표(아직 안 고친 문제라 `test.fail()`).
+- 잘못된 좌표 사진은 샘플의 EXIF 위도를 200도로 고쳐 만든다(`withLatitudeDegrees`).
+
+확인: 화면 28개 통과(예상된 실패 1개 포함). 옮기기 전후 테스트 이름을 대조해 25개가 모두 남아 있는 것을 확인했고, 앱 코드를 8가지로 망가뜨려 옮긴 테스트가 전부 잡는 것을 확인했다.
+
+안 한 것: 동시 실행(`workers: 1` 그대로 — 요청 간격을 재는 테스트가 있다), 사파리·모바일 브라우저, 머문 곳 40곳 초과 시나리오.
+
 ## 배포 (2026-11-17)
 
 - 공개 주소: https://photo-tidy-timeline.vercel.app

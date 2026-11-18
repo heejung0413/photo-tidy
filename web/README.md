@@ -45,6 +45,43 @@ vercel deploy --prod      # web/ 폴더에서. 로그인이 풀렸으면 먼저 
 | `src/components/` | React 화면과 상태 훅(`useTimeline`) |
 | `e2e/` | 화면 테스트와 샘플 사진 |
 
+### 화면 테스트 (`e2e/`)
+
+| 파일 | 내용 |
+| --- | --- |
+| `upload.spec.ts` | 올리기, 중복, 사진 아닌 파일, 끌어다 놓기, 폴더째, 읽는 중 지우기 |
+| `place-names.spec.ts` | 장소 이름 받기, 요청 간격, 실패 후 다시 묻기, 이름 고치기 |
+| `map.spec.ts` | 핀, 창 크기가 바뀔 때의 범위, 좁은 화면 |
+| `share-image.spec.ts` | 이미지로 저장 |
+| `thumbnails.spec.ts` | 썸네일 |
+| `support/test.ts` | 테스트가 가져다 쓰는 `test`, `expect`. 가짜 서비스 설치와 첫 화면 열기를 자동으로 한다 |
+| `support/services.ts` | 가짜 지도 타일·장소 이름 응답(`FakeServices`) |
+| `support/timelinePage.ts` | 화면 조작과 자주 찾는 요소(`TimelinePage`) |
+| `support/image.ts` | 저장한 PNG의 크기·픽셀 읽기 |
+| `support/browserHooks.ts` | 느린 썸네일, 캔버스 글자 기록, 내려받기 주소 기록 |
+| `support/samples.ts` | 샘플 경로, 복사본·위치 없는 사진·잘못된 좌표 사진 만들기 |
+
+새 테스트는 이렇게 시작한다.
+
+```ts
+import { samples } from './support/samples.ts'
+import { expect, test } from './support/test.ts'
+
+test('사진을 올리면 머문 곳이 나온다', async ({ timeline, services }) => {
+  services.nameReply = () => ({ address: { suburb: '우리 동네' } }) // 이름 서비스의 답을 바꾸고 싶을 때만
+  await timeline.upload(samples)
+  await expect(timeline.cards).toHaveCount(5)
+})
+```
+
+```bash
+npx playwright test upload            # 파일 하나만
+npx playwright test -g "폴더"          # 이름에 "폴더"가 든 테스트만
+npx playwright test --ui              # 화면을 보면서
+```
+
+아직 고치지 않은 문제를 재현하는 테스트는 `test.fail()`로 표시한다(실패해야 통과). 문제를 고치면 그 테스트가 "Expected to fail, but passed"로 실패하니 표시를 지운다.
+
 ## 한계
 
 - 크롬은 HEIC 사진을 그리지 못해 썸네일이 빈 칸으로 나온다(타임라인에는 포함된다). 사파리는 그린다.
