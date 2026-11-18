@@ -1,17 +1,18 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
 import { downloadStillAlive, drawnTexts, recordCanvasText, recordDownloadHref, slowThumbnails } from './support/browserHooks.ts'
 import { inspectPNG } from './support/image.ts'
-import { samples } from './support/samples.ts'
+import { samples, withDay } from './support/samples.ts'
 import { expect, test } from './support/test.ts'
 
 // "이미지로 저장": 타임라인을 PNG 한 장으로 만들어 내려받는다.
 //
 // 이미지 안의 자리(픽셀): 너비 1080, 바깥 여백 48. 지도는 (48, 158)부터 984×560.
-// 첫 머문 곳의 첫 썸네일 가운데는 (142, 984)이고, 머문 곳 한 줄의 높이는 252, 썸네일 간격은 144다.
-// 날짜 구분 줄(64)이 날짜마다 한 번 들어간다.
+// 첫 머문 곳의 첫 썸네일 가운데는 (142, 984)이고, 머문 곳 한 줄의 높이는 268, 썸네일 간격은 144다.
+// 날짜 구분 줄(64)이 날짜마다 한 번 들어간다. 지도가 빠지면 이미지가 592(지도 560 + 간격 32)만큼 짧아진다.
 const FIRST_THUMBNAIL = { x: 142, y: 984 }
-const ROW = 252
+const ROW = 268
 const DAY_DIVIDER = 64
+const MAP_BLOCK = 592
 
 test('이미지로 저장하면 PNG를 내려받는다', async ({ page, timeline }, testInfo) => {
   await timeline.upload(samples)
@@ -103,4 +104,62 @@ test('저장한 이미지의 주소는 몇 초 뒤에도 살아 있다', async (
   // 내려받기 전에 확인 창을 띄우는 브라우저에서는 사용자가 누를 때까지 주소가 살아 있어야 한다.
   await page.waitForTimeout(4000)
   expect(await downloadStillAlive(page)).toBe(true)
+})
+
+test('이미지를 만드는 동안에는 저장 버튼이 꺼져 있다', async ({ timeline, services }) => {
+  services.tileDelay = 1500
+  await timeline.upload(samples)
+  await expect(timeline.thumbnails).toHaveCount(6)
+  await expect(timeline.saveButton).toHaveText('이미지로 저장')
+  const saving = timeline.saveImage()
+  await expect(timeline.saveButton).toHaveText('이미지 만드는 중…')
+  await expect(timeline.saveButton).toBeDisabled()
+  await saving
+  await expect(timeline.saveButton).toHaveText('이미지로 저장')
+  await expect(timeline.saveButton).toBeEnabled()
+})
+
+test('지도 타일을 하나도 받지 못하면 지도 없이 이미지를 만든다', async ({ page, timeline, services }, testInfo) => {
+  await recordCanvasText(page)
+  // 처음부터 타일이 안 온다(브라우저가 받아 둔 타일을 다시 쓰지 못하게, 실패하는 쪽을 먼저 한다).
+  services.tilesFail = true
+  await timeline.upload(samples)
+  await expect(timeline.thumbnails).toHaveCount(6)
+  const withoutMap = testInfo.outputPath('without-map.png')
+  await timeline.saveImage(withoutMap)
+  const credit = 'Photo Tidy · 지도 © OpenStreetMap'
+  // 맨 아래 글자에 지도 출처가 없다.
+  expect(await drawnTexts(page)).toContain('Photo Tidy')
+  expect(await drawnTexts(page)).not.toContain(credit)
+
+  // 타일이 다시 오면 지도가 들어가고, 그만큼 이미지가 길어진다.
+  services.tilesFail = false
+  const withMap = testInfo.outputPath('with-map.png')
+  await timeline.saveImage(withMap)
+  expect(await drawnTexts(page)).toContain(credit)
+  const short = await inspectPNG(page, withoutMap)
+  const tall = await inspectPNG(page, withMap)
+  expect(tall.height - short.height).toBe(MAP_BLOCK)
+})
+
+test('머문 곳이 40곳을 넘으면 이미지에는 40곳만 담고 나머지 수를 적는다', async ({ page, timeline }, testInfo) => {
+  await recordCanvasText(page)
+  // 같은 곳을 45일 동안 하루에 한 장씩 찍었다 → 날마다 머문 곳 하나, 모두 45곳.
+  const photos = Array.from({ length: 45 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 0, 1 + index))
+    const day = `2026:${String(date.getUTCMonth() + 1).padStart(2, '0')}:${String(date.getUTCDate()).padStart(2, '0')}`
+    return withDay(samples[0], testInfo.outputPath(`day-${index}.jpg`), day)
+  })
+  await timeline.upload(photos)
+  await expect(timeline.cards).toHaveCount(45)
+  await expect(timeline.summary).toContainText('45장')
+  await timeline.saveImage()
+
+  const texts = await drawnTexts(page)
+  expect(texts).toContain('외 5곳')
+  // 번호는 40번까지만 그린다.
+  expect(texts).toContain('40')
+  expect(texts).not.toContain('41')
+  // 머리말의 장수는 담지 못한 곳까지 포함한다.
+  expect(texts.some((text) => text.includes('45장'))).toBe(true)
 })

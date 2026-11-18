@@ -25,3 +25,14 @@ test('앞 묶음의 썸네일을 만드는 중에도 다음 묶음을 바로 읽
   await timeline.upload([sydney])
   await expect(timeline.summary).toContainText('7장', { timeout: 1500 })
 })
+
+test('브라우저가 그리지 못하는 사진은 타임라인에 넣되 썸네일은 빈 칸으로 둔다', async ({ page, timeline }) => {
+  await timeline.upload([samples[0]])
+  // 이름은 HEIC인데 브라우저가 종류를 모르고(빈 글자), 그림으로 풀지도 못하는 파일.
+  await timeline.uploadData('undrawable.heic', '', Buffer.alloc(2048, 7))
+  await expect(timeline.summary).toContainText('2장')
+  await expect(timeline.thumbnails).toHaveCount(1)
+  await expect(page.getByRole('img', { name: '미리 볼 수 없는 사진' })).toHaveCount(1)
+  // 사진이 아닌 파일로 세지는 않는다.
+  await expect(page.getByText('읽지 못한 파일')).toHaveCount(0)
+})

@@ -1,4 +1,4 @@
-import { samples, withLatitudeDegrees } from './support/samples.ts'
+import { samples, withDay, withLatitudeDegrees } from './support/samples.ts'
 import { expect, test } from './support/test.ts'
 
 // 장소 이름: 서비스에서 받아 오기, 요청 간격, 실패했을 때, 직접 고치기.
@@ -86,4 +86,52 @@ test('장소 이름을 고치면 바뀌고, 다시 방문해도 남는다', asyn
   await again.getByRole('textbox', { name: '장소 이름' }).fill('')
   await again.getByRole('button', { name: '저장' }).click()
   await expect(again).toContainText('장소 1')
+})
+
+test('이름 고치기를 취소하면 바뀌지 않는다', async ({ timeline }) => {
+  await timeline.upload(samples)
+  const first = timeline.card(0)
+  await first.getByRole('button', { name: '장소 이름 바꾸기' }).click()
+  await first.getByRole('textbox', { name: '장소 이름' }).fill('잘못 쓴 이름')
+  await first.getByRole('button', { name: '취소' }).click()
+  await expect(first.getByRole('textbox', { name: '장소 이름' })).toHaveCount(0)
+  await expect(first).toContainText('장소 1')
+  // 다시 열면 쓰다 만 글자가 남아 있지 않다.
+  await first.getByRole('button', { name: '장소 이름 바꾸기' }).click()
+  await expect(first.getByRole('textbox', { name: '장소 이름' })).toHaveValue('')
+})
+
+test('다른 날 같은 곳은 직접 붙인 이름을 물려받고, 따로 고쳐도 원래 장소는 그대로다', async ({ timeline }, testInfo) => {
+  // 첫 사진(성수)과 같은 곳에서 엿새 뒤에 찍은 사진.
+  const later = withDay(samples[0], testInfo.outputPath('later.jpg'), '2026:11:20')
+  await timeline.upload([...samples, later])
+  await expect(timeline.cards).toHaveCount(6)
+  await expect(timeline.dayDividers).toHaveCount(3)
+
+  await timeline.rename(0, '우리 카페')
+  await expect(timeline.card(0)).toContainText('우리 카페')
+  await expect(timeline.card(5)).toContainText('우리 카페')
+  // 떨어진 장소는 물려받지 않는다.
+  await expect(timeline.card(1)).not.toContainText('우리 카페')
+
+  await timeline.rename(5, '그날 간 식당')
+  await expect(timeline.card(5)).toContainText('그날 간 식당')
+  await expect(timeline.card(0)).toContainText('우리 카페')
+})
+
+test('받아 둔 장소 이름은 다시 방문하면 바로 나오고, 다시 묻지 않는다', async ({ page, timeline, services }) => {
+  await timeline.upload(samples)
+  await expect(timeline.card(2)).toContainText('가짜 남산동', { timeout: 15_000 })
+  await expect.poll(() => services.nameQueries.length, { timeout: 15_000 }).toBe(5)
+
+  await page.reload()
+  await timeline.upload(samples)
+  // 이름을 받으려면 1초 넘게 걸리지만, 받아 둔 이름은 기다리지 않고 나온다.
+  await expect(timeline.card(2)).toContainText('가짜 남산동', { timeout: 1000 })
+  // 이름이 없다고 답했던 네 곳만 다시 묻는다(그 답은 방문 동안만 기억한다).
+  await expect.poll(() => services.nameQueries.length, { timeout: 15_000 }).toBe(9)
+  await page.waitForTimeout(1500)
+  const again = services.nameQueries.slice(5)
+  expect(again).toHaveLength(4)
+  expect(again.filter((query) => Math.abs(query.latitude - 37.5512) < 0.001)).toHaveLength(0)
 })

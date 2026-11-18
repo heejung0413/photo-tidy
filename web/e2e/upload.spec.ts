@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { manyCopies, notAPhoto, plainPhoto, samples, sydney } from './support/samples.ts'
+import { manyCopies, notAPhoto, plainPhoto, samples, sydney, withDay } from './support/samples.ts'
 import { expect, test } from './support/test.ts'
 
 // 사진을 올리고(고르기, 끌어다 놓기, 폴더째), 지우는 흐름.
@@ -153,4 +153,16 @@ test('페이지 안의 썸네일을 끌었다 놓아도 새 사진으로 올라�
   // 그 뒤에 밖에서 끌어온 파일은 정상으로 받는다.
   await timeline.dropFile(sydney)
   await expect(timeline.summary).toContainText('7장')
+})
+
+test('여러 해에 걸친 사진이면 날짜 구분 줄에 연도를 적는다', async ({ timeline }, testInfo) => {
+  await timeline.upload(samples)
+  await expect(timeline.dayDividers).toHaveCount(2)
+  // 한 해 안의 사진뿐이면 연도를 적지 않는다.
+  await expect(timeline.dayDividers.nth(0)).not.toContainText('2026')
+
+  await timeline.upload([withDay(samples[0], testInfo.outputPath('last-year.jpg'), '2025:11:14')])
+  await expect(timeline.dayDividers).toHaveCount(3)
+  await expect(timeline.dayDividers.nth(0)).toContainText('2025년 11월 14일')
+  await expect(timeline.dayDividers.nth(1)).toContainText('2026년 11월 14일')
 })

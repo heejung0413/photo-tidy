@@ -74,3 +74,16 @@ export function withLatitudeDegrees(source: string, destination: string, degrees
   writeFileSync(destination, data)
   return destination
 }
+
+/**
+ * 사진 정보(EXIF)의 촬영 날짜만 day("2026:11:20" 모양)로 바꾼 사본을 만든다. 시각은 그대로다.
+ * 다른 날 같은 곳에서 찍은 사진, 다른 해의 사진을 만들 때 쓴다.
+ */
+export function withDay(source: string, destination: string, day: string): string {
+  // 날짜는 "2026:11:14 09:10:00" 모양의 글자로 들어 있다. 길이가 같으므로 그 자리만 바꾼다.
+  const text = readFileSync(source).toString('latin1')
+  const changed = text.replace(/\d{4}:\d{2}:\d{2}(?= \d{2}:\d{2}:\d{2})/g, day)
+  if (changed === text) throw new Error(`촬영 날짜가 없는 파일: ${source}`)
+  writeFileSync(destination, Buffer.from(changed, 'latin1'))
+  return destination
+}

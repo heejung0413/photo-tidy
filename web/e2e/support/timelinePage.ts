@@ -62,8 +62,44 @@ export class TimelinePage {
     await this.page.getByTestId('file-input').setInputFiles(files)
   }
 
+  /**
+   * 내용과 종류(type)를 직접 정한 파일 하나를 파일 선택 창으로 고른 것처럼 올린다.
+   * 브라우저가 종류를 모르는 파일(type이 빈 글자)을 흉내 낼 때 쓴다.
+   * (Playwright의 setInputFiles는 종류를 비워 두면 파일 이름으로 채워 넣는다.)
+   */
+  async uploadData(name: string, type: string, buffer: Buffer): Promise<void> {
+    await this.page.getByTestId('file-input').evaluate(
+      (input, file) => {
+        const data = Uint8Array.from(atob(file.base64), (char) => char.charCodeAt(0))
+        const transfer = new DataTransfer()
+        transfer.items.add(new File([data], file.name, { type: file.type }))
+        ;(input as HTMLInputElement).files = transfer.files
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      },
+      { name, type, base64: buffer.toString('base64') },
+    )
+  }
+
   async clear(): Promise<void> {
     await this.page.getByRole('button', { name: '전부 지우기' }).click()
+  }
+
+  /** index번째 머문 곳의 이름을 text로 고쳐 저장한다. */
+  async rename(index: number, text: string): Promise<void> {
+    const card = this.card(index)
+    await card.getByRole('button', { name: '장소 이름 바꾸기' }).click()
+    await card.getByRole('textbox', { name: '장소 이름' }).fill(text)
+    await card.getByRole('button', { name: '저장' }).click()
+  }
+
+  /** "이미지로 저장" 버튼(만드는 동안에는 글자가 바뀐다). */
+  get saveButton(): Locator {
+    return this.page.getByRole('button', { name: /이미지로 저장|이미지 만드는 중/ })
+  }
+
+  /** 지도의 경로 선. */
+  get routeLines(): Locator {
+    return this.page.locator('.leaflet-overlay-pane path')
   }
 
   /** "이미지로 저장"을 눌러 내려받는다. path를 주면 그곳에 저장한다. */

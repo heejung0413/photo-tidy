@@ -21,8 +21,12 @@ const cors = { 'access-control-allow-origin': '*' }
 export class FakeServices {
   /** 지도 타일 응답을 늦출 시간(밀리초). */
   tileDelay = 0
+  /** 참이면 지도 타일을 하나도 주지 않는다(인터넷이 끊겼거나 타일 서버가 막은 상황). */
+  tilesFail = false
   /** 장소 이름 요청이 온 시각. */
   nameRequests: number[] = []
+  /** 장소 이름 요청의 내용(온 순서). */
+  nameQueries: NameQuery[] = []
   /** 이름 요청에 줄 답. 기본: 남산 근처만 이름을 주고, 나머지는 이름 없는 응답을 준다. */
   nameReply: (query: NameQuery) => NameReply = ({ latitude }) => {
     const address: Record<string, string> = Math.abs(latitude - 37.5512) < 0.001 ? { suburb: '가짜 남산동' } : {}
@@ -31,17 +35,20 @@ export class FakeServices {
 
   async install(page: Page): Promise<void> {
     await page.route('https://tile.openstreetmap.org/**', async (route) => {
+      if (this.tilesFail) return route.abort()
       if (this.tileDelay > 0) await new Promise((resolve) => setTimeout(resolve, this.tileDelay))
       await route.fulfill({ contentType: 'image/png', body: blankPNG, headers: cors })
     })
     await page.route('https://nominatim.openstreetmap.org/**', (route) => {
       const url = new URL(route.request().url())
       this.nameRequests.push(Date.now())
-      const reply = this.nameReply({
+      const query: NameQuery = {
         latitude: Number(url.searchParams.get('lat')),
         longitude: Number(url.searchParams.get('lon')),
         count: this.nameRequests.length,
-      })
+      }
+      this.nameQueries.push(query)
+      const reply = this.nameReply(query)
       if (reply === 'abort') return route.abort()
       if ('status' in reply) return route.fulfill({ status: reply.status, json: {}, headers: cors })
       return route.fulfill({ json: reply, headers: cors })
