@@ -86,22 +86,88 @@ final class GroupStoreTests: XCTestCase {
     }
 
     func testResolveHidesGroupWhenTwoOrMoreRemain() {
-        var state = StoreState(groups: [group(["a", "b", "c"], recommended: "c")])
-        state.resolve(groupID: "a", deleted: ["a"])
+        let target = group(["a", "b", "c"], recommended: "c")
+        var state = StoreState(groups: [target])
+        state.resolve(target, deleted: ["a"])
         XCTAssertEqual(state.groups[0].photos.map(\.item.id), ["b", "c"])
         XCTAssertTrue(state.groups[0].isSkipped)
     }
 
     func testResolveRemovesGroupWhenOneRemains() {
-        var state = StoreState(groups: [group(["a", "b", "c"], recommended: "c")])
-        state.resolve(groupID: "a", deleted: ["a", "b"])
+        let target = group(["a", "b", "c"], recommended: "c")
+        var state = StoreState(groups: [target])
+        state.resolve(target, deleted: ["a", "b"])
         XCTAssertTrue(state.groups.isEmpty)
     }
 
     func testSkipHidesGroup() {
-        var state = StoreState(groups: [group(["a", "b"], recommended: "b")])
-        state.skip(groupID: "a")
+        let target = group(["a", "b"], recommended: "b")
+        var state = StoreState(groups: [target])
+        state.skip(target)
         XCTAssertTrue(state.groups[0].isSkipped)
+    }
+
+    // MARK: 화면이 들고 있던 묶음과 저장된 묶음이 어긋났을 때
+
+    /// 삭제 확인 창이 닫히며 앱이 다시 켜질 때, 사라진 사진 정리(prune)가 삭제 마무리보다 먼저 돌 수 있다.
+    /// 그때 첫 사진이 지워졌으면 묶음의 id가 바뀌어 있다.
+    func testResolveHidesGroupWhoseFirstPhotoWasAlreadyPruned() {
+        let shown = group(["a", "b", "c", "d"], recommended: "d")
+        var state = StoreState(groups: [shown])
+        state.prune(existing: ["c", "d"])
+        state.resolve(shown, deleted: ["a", "b"])
+        XCTAssertEqual(state.groups.map { $0.photos.map(\.item.id) }, [["c", "d"]])
+        XCTAssertEqual(state.groups.map(\.isSkipped), [true])
+    }
+
+    /// 상세 화면을 연 채로 사진 앱에서 묶음의 첫 사진을 지우고 돌아와 건너뛰기를 누른 경우.
+    func testSkipHidesGroupWhoseFirstPhotoWasAlreadyPruned() {
+        let shown = group(["a", "b", "c"], recommended: "c")
+        var state = StoreState(groups: [shown])
+        state.prune(existing: ["b", "c"])
+        state.skip(shown)
+        XCTAssertEqual(state.groups.map(\.isSkipped), [true])
+    }
+
+    /// 첫 사진뿐 아니라 추천 사진·마지막 사진까지 사라져도, 남은 사진이 하나라도 겹치면 같은 묶음이다.
+    func testResolveFindsGroupByAnyRemainingPhoto() {
+        let shown = group(["a", "b", "c", "d"], recommended: "d")
+        var state = StoreState(groups: [shown])
+        state.prune(existing: ["b", "c"])
+        state.resolve(shown, deleted: ["a", "d"])
+        XCTAssertEqual(state.groups.map { $0.photos.map(\.item.id) }, [["b", "c"]])
+        XCTAssertEqual(state.groups.map(\.isSkipped), [true])
+    }
+
+    func testSkipFindsGroupByAnyRemainingPhoto() {
+        let shown = group(["a", "b", "c", "d"], recommended: "d")
+        var state = StoreState(groups: [shown])
+        state.prune(existing: ["b", "c"])
+        state.skip(shown)
+        XCTAssertEqual(state.groups.map(\.isSkipped), [true])
+    }
+
+    func testResolveAndSkipLeaveOtherGroupsAlone() {
+        let first = group(["a", "b", "c"], recommended: "c")
+        let second = group(["x", "y", "z"], recommended: "z")
+        var state = StoreState(groups: [first, second])
+        state.prune(existing: ["b", "c", "y", "z"])
+        state.resolve(second, deleted: ["x"])
+        XCTAssertEqual(state.groups.map(\.isSkipped), [false, true])
+        state = StoreState(groups: [first, second])
+        state.prune(existing: ["b", "c", "y", "z"])
+        state.skip(second)
+        XCTAssertEqual(state.groups.map(\.isSkipped), [false, true])
+    }
+
+    /// 묶음이 통째로 사라진 뒤(남은 사진 1장 이하)에 마무리해도 다른 묶음을 건드리지 않는다.
+    func testResolveDoesNothingWhenGroupIsGone() {
+        let gone = group(["a", "b"], recommended: "b")
+        let other = group(["x", "y"], recommended: "y")
+        var state = StoreState(groups: [gone, other])
+        state.prune(existing: ["b", "x", "y"])
+        state.resolve(gone, deleted: ["a"])
+        XCTAssertEqual(state.groups, [other])
     }
 
     // MARK: 파일이 깨졌을 때

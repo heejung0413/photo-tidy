@@ -130,13 +130,13 @@ final class AppModel {
         let ids = group.photos.map(\.item.id).filter { !keep.contains($0) }
         guard !keep.isEmpty, !ids.isEmpty else { return false }
         guard await library.delete(ids: ids) else { return false }
-        state.resolve(groupID: group.id, deleted: Set(ids))
+        state.resolve(group, deleted: Set(ids))
         try? store.save(state)
         return true
     }
 
     func skip(_ group: StoredGroup) {
-        state.skip(groupID: group.id)
+        state.skip(group)
         try? store.save(state)
     }
 }

@@ -98,8 +98,9 @@ public struct StoreState: Codable, Equatable, Sendable {
     }
 
     /// 삭제를 마친 묶음: 남은 사진이 2장 이상이면 숨기고, 아니면 지운다.
-    public mutating func resolve(groupID: String, deleted: Set<String>) {
-        guard let index = groups.firstIndex(where: { $0.id == groupID }) else { return }
+    /// target은 화면이 들고 있던 묶음이라, 저장된 묶음과 사진 구성이 조금 다를 수 있다.
+    public mutating func resolve(_ target: StoredGroup, deleted: Set<String>) {
+        guard let index = index(of: target) else { return }
         var group = groups[index]
         group.photos.removeAll { deleted.contains($0.item.id) }
         group.isSkipped = true
@@ -110,9 +111,17 @@ public struct StoreState: Codable, Equatable, Sendable {
         }
     }
 
-    public mutating func skip(groupID: String) {
-        guard let index = groups.firstIndex(where: { $0.id == groupID }) else { return }
+    public mutating func skip(_ target: StoredGroup) {
+        guard let index = index(of: target) else { return }
         groups[index].isSkipped = true
+    }
+
+    /// target과 사진이 겹치는 저장된 묶음의 위치.
+    /// 묶음의 id는 첫 사진의 id라서, 첫 사진이 사진첩에서 사라지면 같은 묶음인데도 id가 달라진다.
+    /// 그래서 id가 아니라 사진으로 찾는다. 저장된 묶음끼리는 사진이 겹치지 않는다(merge가 합친다).
+    private func index(of target: StoredGroup) -> Int? {
+        let ids = Set(target.photos.map(\.item.id))
+        return groups.firstIndex { $0.photos.contains { ids.contains($0.item.id) } }
     }
 
     private static func repaired(_ group: StoredGroup) -> StoredGroup? {
