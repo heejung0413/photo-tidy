@@ -2,6 +2,7 @@ import { fitView, project, tilesFor, TILE_SIZE } from '../core/mercator'
 import { retitled, type ShareOutline } from '../core/shareOutline'
 import { dayLabel, timeRange } from '../core/timelineText'
 import type { TimelineStop } from '../core/types'
+import { ACCENT } from '../theme'
 import { TILE_ATTRIBUTION, tileURL } from './tiles'
 
 export interface ShareImageOptions {
@@ -18,7 +19,6 @@ const WIDTH = 1080
 const MARGIN = 48
 const MAP_HEIGHT = 560
 const THUMB = 132
-const ACCENT = 'rgb(13, 133, 122)'
 const BACKGROUND = '#f2f2f7'
 const FONT = '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif'
 

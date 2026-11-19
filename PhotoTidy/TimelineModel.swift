@@ -47,9 +47,7 @@ final class TimelineModel {
 
     init(library: PhotoLibrary) {
         self.library = library
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        customNamesStore = PlaceNameStore(url: directory.appendingPathComponent("custom-place-names.json"))
+        customNamesStore = PlaceNameStore(url: AppFiles.url("custom-place-names.json"))
         customNames = customNamesStore.load()
     }
 

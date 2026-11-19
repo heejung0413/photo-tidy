@@ -56,4 +56,38 @@ final class TimelineTextTests: XCTestCase {
         XCTAssertTrue(parts[0].contains("2001"), text)
         XCTAssertTrue(parts[1].contains("2002"), text)
     }
+
+    // MARK: 날짜 제목 ("2001년 1월 1일 (월)")
+
+    func testDayTitleShowsYearMonthDayAndWeekday() {
+        let text = TimelineText.dayTitle(at(0, 0), locale: korean, timeZone: utc)
+        XCTAssertTrue(text.contains("2001"), text)
+        XCTAssertTrue(text.contains("1월 1일"), text)
+        XCTAssertTrue(text.contains("월)") || text.contains("월요일"), text) // 2001-01-01은 월요일
+    }
+
+    func testDayTitleWithoutYear() {
+        let text = TimelineText.dayTitle(at(0, 0), withYear: false, locale: korean, timeZone: utc)
+        XCTAssertFalse(text.contains("2001"), text)
+        XCTAssertTrue(text.contains("1월 1일"), text)
+    }
+
+    /// 화면과 공유 이미지에 쓰던 표기(Date.FormatStyle)와 글자가 같아야 한다.
+    func testDayTitleMatchesPreviousFormat() {
+        let date = at(15, 0, day: 300)
+        var withYear = Date.FormatStyle.dateTime.year().month().day().weekday().locale(korean)
+        withYear.timeZone = utc
+        var withoutYear = Date.FormatStyle.dateTime.month().day().weekday().locale(korean)
+        withoutYear.timeZone = utc
+        XCTAssertEqual(TimelineText.dayTitle(date, locale: korean, timeZone: utc), date.formatted(withYear))
+        XCTAssertEqual(TimelineText.dayTitle(date, withYear: false, locale: korean, timeZone: utc),
+                       date.formatted(withoutYear))
+    }
+
+    func testDayTitleFollowsTimeZone() {
+        // UTC 1월 1일 20시는 서울로 1월 2일이다.
+        let seoul = TimeZone(secondsFromGMT: 9 * 3600)!
+        XCTAssertTrue(TimelineText.dayTitle(at(20, 0), locale: korean, timeZone: seoul).contains("1월 2일"))
+        XCTAssertTrue(TimelineText.dayTitle(at(20, 0), locale: korean, timeZone: utc).contains("1월 1일"))
+    }
 }

@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import type { Coordinate } from '../core/types'
 import { TILE_ATTRIBUTION, TILE_MAX_ZOOM, TILE_URL } from '../services/tiles'
+import { ACCENT } from '../theme'
 
 export interface MapPin {
   /** 머문 곳 id. */
@@ -20,7 +21,6 @@ interface Props {
   focus: { coordinate: Coordinate } | null
 }
 
-const ACCENT = 'rgb(13, 133, 122)'
 const latLng = (c: Coordinate): L.LatLngTuple => [c.latitude, c.longitude]
 const escapeHTML = (text: string) => text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`)
 

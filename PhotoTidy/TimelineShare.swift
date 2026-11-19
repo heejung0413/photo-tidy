@@ -46,7 +46,7 @@ enum TimelineShare {
                            subtitle: "\(TimelineText.period(from: first, to: last)) · \(outline.photoCount)장",
                            isAlbum: true)
         }
-        return Request(outline: outline, title: days[0].day.formatted(.dateTime.year().month().day().weekday()),
+        return Request(outline: outline, title: TimelineText.dayTitle(days[0].day),
                        subtitle: "\(outline.photoCount)장", isAlbum: false)
     }
 
@@ -76,8 +76,7 @@ enum TimelineShare {
         for (index, outlineSection) in outline.sections.enumerated() {
             var section = Section(
                 id: index,
-                header: request.isAlbum
-                    ? outlineSection.day.formatted(.dateTime.year().month().day().weekday()) : nil,
+                header: request.isAlbum ? TimelineText.dayTitle(outlineSection.day) : nil,
                 stops: [])
             for item in outlineSection.stops {
                 section.stops.append(Stop(

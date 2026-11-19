@@ -22,9 +22,7 @@ final class AppModel {
     private var task: Task<Void, Never>?
 
     init() {
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        store = GroupStore(url: directory.appendingPathComponent("groups.json"))
+        store = GroupStore(url: AppFiles.url("groups.json"))
         state = store.load()
         refreshAccess()
     }

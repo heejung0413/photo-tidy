@@ -9,9 +9,7 @@ final class PlaceNamer {
     private let lookup: PlaceNameLookup
 
     init() {
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent("place-names.json")
+        let url = AppFiles.url("place-names.json")
         let saved = (try? JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))) ?? [:]
         let geocoder = CLGeocoder()
         lookup = PlaceNameLookup(cache: saved, lookup: { coordinate in

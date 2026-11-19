@@ -10,8 +10,13 @@ extension PhotoLibrary {
         options.predicate = NSPredicate(format: "creationDate >= %@ AND creationDate < %@",
                                         start as NSDate, end as NSDate)
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+        return Self.timelinePhotos(PHAsset.fetchAssets(with: .image, options: options))
+    }
+
+    /// 사진첩에서 읽은 사진을 타임라인 사진으로 바꾼다. 촬영 시각이 없는 사진은 뺀다.
+    static func timelinePhotos(_ assets: PHFetchResult<PHAsset>) -> [TimelinePhoto] {
         var photos: [TimelinePhoto] = []
-        PHAsset.fetchAssets(with: .image, options: options).enumerateObjects { asset, _, _ in
+        assets.enumerateObjects { asset, _, _ in
             guard let takenAt = asset.creationDate else { return }
             let coordinate = asset.location.map {
                 Coordinate(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)

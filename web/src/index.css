@@ -1,5 +1,5 @@
 :root {
-  --accent: rgb(13, 133, 122);
+  --accent: rgb(13, 133, 122); /* src/theme.ts의 ACCENT와 같은 값 */
   --accent-soft: rgba(13, 133, 122, 0.12);
   --background: #f2f2f7;
   --card: #fff;

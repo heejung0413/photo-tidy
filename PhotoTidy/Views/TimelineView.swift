@@ -226,7 +226,7 @@ struct TimelineView: View {
                 }
                 ForEach(numberedSections, id: \.section.id) { item in
                     HStack {
-                        Text(item.section.day.formatted(dividerFormat))
+                        Text(TimelineText.dayTitle(item.section.day, withYear: spansYears))
                             .font(.subheadline.bold())
                             .foregroundStyle(Theme.accent)
                         VStack { Divider() }
@@ -253,10 +253,9 @@ struct TimelineView: View {
         }
     }
 
-    /// 앨범이 여러 해에 걸치면 날짜 구분 줄에 연도도 적는다.
-    private var dividerFormat: Date.FormatStyle {
-        let years = Set(model.sections.map { Calendar.current.component(.year, from: $0.day) })
-        return years.count > 1 ? .dateTime.year().month().day().weekday() : .dateTime.month().day().weekday()
+    /// 앨범이 여러 해에 걸치는가. 그러면 날짜 구분 줄에 연도도 적는다.
+    private var spansYears: Bool {
+        Set(model.sections.map { Calendar.current.component(.year, from: $0.day) }).count > 1
     }
 
     private var albumSummary: String {
@@ -280,7 +279,7 @@ struct TimelineView: View {
             .accessibilityLabel("이전 날")
 
             Spacer()
-            Button(day.formatted(.dateTime.year().month().day().weekday())) {
+            Button(TimelineText.dayTitle(day)) {
                 pickedDate = day
                 isPickingDate = true
             }

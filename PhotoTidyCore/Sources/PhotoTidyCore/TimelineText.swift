@@ -18,4 +18,16 @@ public enum TimelineText {
         style.timeZone = timeZone
         return first == last ? first.formatted(style) : "\(first.formatted(style)) – \(last.formatted(style))"
     }
+
+    /// 날짜 제목. "2026년 11월 14일 (토)", withYear가 거짓이면 "11월 14일 (토)".
+    /// 하루 보기 머리말, 앨범의 날짜 구분 줄, 공유 이미지에 같이 쓴다.
+    public static func dayTitle(_ day: Date, withYear: Bool = true, locale: Locale = .autoupdatingCurrent,
+                                timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        var style = withYear
+            ? Date.FormatStyle.dateTime.year().month().day().weekday()
+            : Date.FormatStyle.dateTime.month().day().weekday()
+        style = style.locale(locale)
+        style.timeZone = timeZone
+        return day.formatted(style)
+    }
 }

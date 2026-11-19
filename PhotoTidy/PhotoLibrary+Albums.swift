@@ -38,29 +38,13 @@ extension PhotoLibrary {
     func timelinePhotos(inAlbum id: String) -> [TimelinePhoto] {
         guard let collection = PHAssetCollection.fetchAssetCollections(
             withLocalIdentifiers: [id], options: nil).firstObject else { return [] }
-        var photos: [TimelinePhoto] = []
-        PHAsset.fetchAssets(in: collection, options: Self.albumPhotoOptions).enumerateObjects { asset, _, _ in
-            guard let takenAt = asset.creationDate else { return }
-            let coordinate = asset.location.map {
-                Coordinate(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)
-            }
-            photos.append(TimelinePhoto(id: asset.localIdentifier, takenAt: takenAt, coordinate: coordinate))
-        }
-        return photos
+        return Self.timelinePhotos(PHAsset.fetchAssets(in: collection, options: Self.albumPhotoOptions))
     }
 
     #if DEBUG
     /// 시뮬레이터 확인용: 사진첩의 모든 사진을 담은 일반 앨범을 만든다(이미 있으면 그대로 둔다).
     func makeSampleAlbumIfNeeded(title: String = "샘플 앨범") async {
-        var exists = false
-        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
-            .enumerateObjects { collection, _, stop in
-                if collection.localizedTitle == title {
-                    exists = true
-                    stop.pointee = true
-                }
-            }
-        guard !exists else { return }
+        guard regularAlbum(titled: title) == nil else { return }
         let assets = PHAsset.fetchAssets(with: .image, options: nil)
         try? await PHPhotoLibrary.shared().performChanges {
             PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: title).addAssets(assets)
@@ -70,15 +54,7 @@ extension PhotoLibrary {
     /// 시뮬레이터 확인용: 앱이 켜져 있는 동안 앨범 내용이 바뀌는 상황을 만든다.
     /// 사진첩에는 있지만 샘플 앨범에는 없는 사진을 모두 앨범에 넣는다.
     func growSampleAlbum(title: String = "샘플 앨범") async {
-        var album: PHAssetCollection?
-        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
-            .enumerateObjects { collection, _, stop in
-                if collection.localizedTitle == title {
-                    album = collection
-                    stop.pointee = true
-                }
-            }
-        guard let album else { return }
+        guard let album = regularAlbum(titled: title) else { return }
         var inAlbum: Set<String> = []
         PHAsset.fetchAssets(in: album, options: nil).enumerateObjects { asset, _, _ in
             inAlbum.insert(asset.localIdentifier)
@@ -93,6 +69,19 @@ extension PhotoLibrary {
         try? await PHPhotoLibrary.shared().performChanges {
             PHAssetCollectionChangeRequest(for: album)?.addAssets(missing as NSArray)
         }
+    }
+
+    /// 내가 만든 앨범 중 이름이 title인 첫 앨범.
+    private func regularAlbum(titled title: String) -> PHAssetCollection? {
+        var found: PHAssetCollection?
+        PHAssetCollection.fetchAssetCollections(with: .album, subtype: .albumRegular, options: nil)
+            .enumerateObjects { collection, _, stop in
+                if collection.localizedTitle == title {
+                    found = collection
+                    stop.pointee = true
+                }
+            }
+        return found
     }
     #endif
 }
